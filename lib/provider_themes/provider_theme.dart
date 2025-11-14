@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 
 class ThemeProvider with ChangeNotifier {
   ThemeData _currentTheme = ThemeData(
-    scaffoldBackgroundColor: const Color(0xFF0F0F1C),
+    scaffoldBackgroundColor:  Color(0xFF1E201E),
     colorScheme: ColorScheme.fromSeed(
       seedColor: const Color(0xFF0F0F1C),
       brightness: Brightness.dark,
     ),
     appBarTheme: const AppBarTheme(
-      backgroundColor: Colors.transparent,
+      backgroundColor: Color(0xFF1E201E),
       elevation: 0,
     ),
     textTheme: const TextTheme(
@@ -89,8 +89,8 @@ class ThemeProvider with ChangeNotifier {
       ),
 
       bottomSheetTheme: BottomSheetThemeData(
-        backgroundColor: color,
-        modalBackgroundColor: color,
+        backgroundColor: color.withOpacity(0.5),
+        modalBackgroundColor: color.withOpacity(0.5),
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
         ),

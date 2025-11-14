@@ -51,10 +51,10 @@ class _MainHomeState extends State<MainHome> {
   }
 
   final List<Color> _backgroundColors = [
-    Color(0xFF0F0F1C), // DiscoverScreen
+    Colors.transparent, // DiscoverScreen
     Color(0xFFD61C4E), // TopChartScreen
-    Color(0xFF0F0F1C), // LibraryScreen
-    Color(0xFF0F0F1C), // PremiumScreen
+    Colors.transparent, // LibraryScreen
+    Colors.transparent, // PremiumScreen
   ];
 
   final List<Text> _screenTitle = [

@@ -467,7 +467,6 @@ class TopChartScreenState extends State<TopChartScreen> {
                                     isScrollControlled: true,
                                     builder: (_) => const PremiumBottomSheet(),
                                   );
-
                                 }
                               },
 
