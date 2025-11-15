@@ -263,7 +263,7 @@ class AudioPlayerProvider extends ChangeNotifier {
     currentSongId = song['song_id'].toString();
     currentSongPath = song["local_path"];
     currentTitle = song['title'];
-    currentArtist = song['artist'];
+    currentArtist = song['artist'] ?? song["artist_name"];
     currentCover = song['cover_url'];
 
     if (currentSongPath == null || currentSongPath!.isEmpty) {

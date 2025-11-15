@@ -3,9 +3,11 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:music_app/artist/artist_detail_screen.dart';
 import 'package:page_transition/page_transition.dart';
 import 'package:provider/provider.dart';
 import '../provider/audio_player_provider.dart';
+import '../provider/status_provider.dart';
 import '../provider/user_provider.dart';
 import '../search_screen/album_detail_screen.dart';
 import 'just_audio_demo.dart';
@@ -30,6 +32,7 @@ class DiscoverScreenState extends State<DiscoverScreen> {
     fetchStarterSongs();
     fetchRecommendedSongs();
     fetchRecentAlbums();
+    fetchTopArtists();
   }
 
   // lấy những albums có bài hát nghe gần đây
@@ -148,6 +151,32 @@ class DiscoverScreenState extends State<DiscoverScreen> {
     }
   }
 
+  // lấy những nghệ sĩ hay nghe nhất
+  List<Map<String, dynamic>> topArtists = [];
+  Future<void> fetchTopArtists() async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final userId = userProvider.user!.id;
+
+    final url = Uri.parse(
+      "http://10.0.2.2:8081/music_API/online_music/history/get_top_artists.php?user_id=$userId",
+    );
+
+    final res = await http.get(url);
+
+    if (res.statusCode == 200) {
+      final data = jsonDecode(res.body);
+
+      if (data["status"] == "success") {
+        setState(() {
+          topArtists = List<Map<String, dynamic>>.from(data["artists"]);
+        });
+      }
+    } else {
+      debugPrint("Lỗi API lấy top nghệ sĩ: ${res.statusCode}");
+    }
+  }
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -188,6 +217,7 @@ class DiscoverScreenState extends State<DiscoverScreen> {
                                 albumName: item['album_name'],
                                 albumCover: item['cover_url'],
                               ),
+                              settings: const RouteSettings(name: "albumScreen"),
                             ),
                           );
                         },
@@ -284,6 +314,7 @@ class DiscoverScreenState extends State<DiscoverScreen> {
                                 albumName: item['album_name'],
                                 albumCover: item['cover_url'],
                               ),
+                              settings: const RouteSettings(name: "albumScreen"),
                             ),
                           );
                         },
@@ -582,17 +613,60 @@ class DiscoverScreenState extends State<DiscoverScreen> {
               ),
             ],
 
-
             // Gợi ý bài hát
             const Text(
-              'Nội dung hay nghe gần đây',
+              'Những nghệ sĩ bạn hay nghe nhất',
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
+            SizedBox(
+              height: 140,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: topArtists.length,
+                itemBuilder: (context, index) {
+                  final artist = topArtists[index];
+                  return GestureDetector(
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 20),
+                      child: Column(
+                        children: [
+                          CircleAvatar(
+                            radius: 40,
+                            backgroundImage: NetworkImage(artist['avatar_url']),
+                          ),
+                          const SizedBox(height: 6),
+                          SizedBox(
+                            width: 80,
+                            child: Text(
+                                artist['artist_name'],
+                              style: const TextStyle(color: Colors.white),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
+                            ),
+                          )
+                        ],
+                      ),
+                    ),
+                    onTap: (){
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context)=>ArtistDetailScreen(artistId: artist['artist_id'].toString()),
+                              settings: const RouteSettings(name: "artist_detail"),
+                          )
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+
             Column(
               children: List.generate(
                 3,

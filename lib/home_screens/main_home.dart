@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:music_app/helpers/hide_app_bar_observer.dart';
 import 'package:music_app/search_screen/search_screen.dart';
 import 'package:music_app/search_screen/voice_screen.dart';
 import 'package:music_app/login_screens/login_demo.dart';
@@ -10,6 +11,7 @@ import 'package:music_app/provider/user_provider.dart';
 import 'package:page_transition/page_transition.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../library_screens/library_screen.dart';
 import '../personal_screens/personal_screen.dart';
 import '../premium_screen/premium_screen.dart';
@@ -34,84 +36,51 @@ class _MainHomeState extends State<MainHome> {
     GlobalKey<NavigatorState>(),
     GlobalKey<NavigatorState>(),
   ];
+
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   int _selectedIndex = 0;
 
   @override
   void initState() {
     super.initState();
-    final audioProvider = Provider.of<AudioPlayerProvider>(context, listen: false);
-    audioProvider.loadLastSong(); // load từ SharedPreferences, nếu không có thì currentSongPath=null
+    final audioProvider =
+    Provider.of<AudioPlayerProvider>(context, listen: false);
+    audioProvider.loadLastSong();
 
-    // dùng để load lại status của shuffle và repeat khi mở lại app
     Future.microtask(() {
-      final audioProvider = Provider.of<AudioPlayerProvider>(context, listen: false);
       audioProvider.loadLastSettings();
     });
   }
 
   final List<Color> _backgroundColors = [
-    Colors.transparent, // DiscoverScreen
-    Color(0xFFD61C4E), // TopChartScreen
-    Colors.transparent, // LibraryScreen
-    Colors.transparent, // PremiumScreen
+    Colors.transparent,
+    Color(0xFFD61C4E),
+    Colors.transparent,
+    Colors.transparent,
   ];
 
-  final List<Text> _screenTitle = [
-    Text("Trang chủ", style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),),
-    Text("Hot", style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
-    Text("Thư viện", style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
-    Text("Nâng cấp tài khoản", style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+  final List<Text> _screenTitle = const [
+    Text("Trang chủ",
+        style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+    Text("Hot",
+        style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+    Text("Thư viện",
+        style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+    Text("Nâng cấp tài khoản",
+        style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
   ];
-
-
-  Future<void> signOutGoogle(BuildContext context) async {
-    try {
-      // 1. Đăng xuất Firebase
-      await FirebaseAuth.instance.signOut();
-
-      // 2. Đăng xuất Google Sign-In
-      final GoogleSignIn googleSignIn = GoogleSignIn();
-      await googleSignIn.signOut();
-
-      // 3. Xóa user trong Provider nếu có
-      Provider.of<UserProvider>(context, listen: false).clearUser();
-
-      // 4. Chuyển về màn hình login hoặc home
-      Navigator.push(context, MaterialPageRoute(builder: (context) => LoginScreenDemo()));
-
-      print("Đăng xuất thành công");
-    } catch (e) {
-      print("Đăng xuất thất bại: $e");
-    }
-  }
 
   Future<void> logout(BuildContext context) async {
-    // Đăng xuất Firebase + Google
     await fb.FirebaseAuth.instance.signOut();
     final googleSignIn = GoogleSignIn();
     await googleSignIn.signOut();
 
-    // Xóa thông tin người dùng và nhạc đã lưu
     context.read<UserProvider>().clearUser();
     await context.read<AudioPlayerProvider>().clearSong();
 
-    final audioProvider = Provider.of<AudioPlayerProvider>(context, listen: false);
-    audioProvider.clearSong();
-    // Xóa dữ liệu SharedPreferences của user hiện tại
     final prefs = await SharedPreferences.getInstance();
-    final userId = fb.FirebaseAuth.instance.currentUser?.uid ?? "guest";
-    await prefs.remove('song_count_$userId');
-    await prefs.remove('songId_$userId');
-    await prefs.remove('songPath_$userId');
-    await prefs.remove('songTitle_$userId');
-    await prefs.remove('songArtist_$userId');
-    await prefs.remove('songCover_$userId');
-    await prefs.remove('isRepeat_$userId');
-    await prefs.remove('isShuffle_$userId');
     prefs.clear();
 
-    // Điều hướng về màn hình đăng nhập
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (_) => LoginScreenDemo()),
@@ -119,47 +88,46 @@ class _MainHomeState extends State<MainHome> {
     );
   }
 
+  // BUILD UI
   @override
   Widget build(BuildContext context) {
-    final userProvider = Provider.of<UserProvider>(context);
-    final user = userProvider.user;
+    final user = Provider.of<UserProvider>(context).user;
     final audioProvider = Provider.of<AudioPlayerProvider>(context);
+
     return WillPopScope(
       onWillPop: () async {
-        final isFirstRouteInCurrentTab =
+        final isFirstRoute =
         !await _navigatorKeys[_selectedIndex].currentState!.maybePop();
-        if (isFirstRouteInCurrentTab) {
-          if (_selectedIndex != 0) {
-            setState(() => _selectedIndex = 0);
-            return false;
-          }
+
+        if (isFirstRoute && _selectedIndex != 0) {
+          setState(() => _selectedIndex = 0);
+          return false;
         }
-        return isFirstRouteInCurrentTab;
+        return isFirstRoute;
       },
       child: Scaffold(
         key: _scaffoldKey,
 
+        // ------------------ DRAWER ------------------
         drawer: Drawer(
           width: 350,
           backgroundColor: const Color(0xFF0F0F1C),
           child: ListView(
             padding: EdgeInsets.zero,
             children: [
-              // Header
               DrawerHeader(
                 decoration: const BoxDecoration(),
                 child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center, // 🔹 căn giữa dọc
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     CircleAvatar(
                       radius: 28,
                       backgroundColor: Colors.blueAccent.withOpacity(0.15),
-                      child:CircleAvatar(
-                          radius: 25,
-                          //backgroundImage: getUserAvatar(user!),
-                          backgroundImage: user?.avatar != null
-                              ? NetworkImage(user!.avatar)
-                              : AssetImage('assets/images/profile.png') as ImageProvider
+                      child: CircleAvatar(
+                        radius: 25,
+                        backgroundImage: user?.avatar != null
+                            ? NetworkImage(user!.avatar)
+                            : const AssetImage('assets/images/profile.png'),
                       ),
                     ),
                     const SizedBox(width: 14),
@@ -178,21 +146,26 @@ class _MainHomeState extends State<MainHome> {
                 ),
               ),
 
-              // Các menu chính
               _buildDrawerItem(
                 icon: Icons.person,
                 text: "Hồ sơ cá nhân",
-                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => PersonalScreen())),
+                onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => PersonalScreen())),
               ),
+
               _buildDrawerItem(
                 icon: Icons.settings,
                 text: "Cài đặt",
-                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SettingsScreen())),
+                onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => const SettingsScreen())),
               ),
 
-              const Divider(color: Colors.white24, height: 20, indent: 16, endIndent: 16),
+              const Divider(color: Colors.white24, indent: 16, endIndent: 16),
 
-              // Đăng xuất
               _buildDrawerItem(
                 icon: Icons.logout,
                 text: "Đăng xuất",
@@ -203,7 +176,7 @@ class _MainHomeState extends State<MainHome> {
                   showDialog(
                     context: context,
                     barrierDismissible: false,
-                    builder: (context) {
+                    builder: (_) {
                       return Dialog(
                         backgroundColor: const Color(0xFF0F0F1C),
                         shape: RoundedRectangleBorder(
@@ -214,33 +187,35 @@ class _MainHomeState extends State<MainHome> {
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.logout, size: 50, color: Colors.redAccent),
+                              const Icon(Icons.logout,
+                                  size: 50, color: Colors.redAccent),
                               const SizedBox(height: 16),
                               const Text(
                                 "Bạn có chắc chắn muốn đăng xuất?",
                                 textAlign: TextAlign.center,
-                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.white),
+                                style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                    color: Colors.white),
                               ),
                               const SizedBox(height: 24),
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                mainAxisAlignment:
+                                MainAxisAlignment.spaceEvenly,
                                 children: [
                                   ElevatedButton(
+                                    onPressed: () =>
+                                        Navigator.of(context).pop(),
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.grey.shade300,
-                                      foregroundColor: Colors.black,
-                                    ),
-                                    onPressed: () => Navigator.of(context).pop(),
+                                        backgroundColor: Colors.grey.shade300,
+                                        foregroundColor: Colors.black),
                                     child: const Text("Huỷ"),
                                   ),
                                   ElevatedButton(
+                                    onPressed: () => logout(context),
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.redAccent,
-                                      foregroundColor: Colors.white,
-                                    ),
-                                    onPressed: () async {
-                                      logout(context);
-                                    },
+                                        backgroundColor: Colors.redAccent,
+                                        foregroundColor: Colors.white),
                                     child: const Text("Đăng xuất"),
                                   ),
                                 ],
@@ -256,72 +231,66 @@ class _MainHomeState extends State<MainHome> {
             ],
           ),
         ),
-        // appbar
+
+        // ------------------ APPBAR ------------------
         appBar: PreferredSize(
-            preferredSize: Size.fromHeight(60), // chiều cao AppBar
-            child: Consumer<StatusProvider>(
-              builder: (_, status, __) {
-                return status.showAppBar
-                    ? AppBar(
-                  backgroundColor: _backgroundColors[_selectedIndex],
-                  elevation: 0,
-                  title: _screenTitle[_selectedIndex],
-                  leading: GestureDetector(
-                    onTap: () => _scaffoldKey.currentState?.openDrawer(),
-                    child: Padding(
-                      padding: const EdgeInsets.all(8.0),
+          preferredSize: const Size.fromHeight(60),
+          child: Consumer<StatusProvider>(
+            builder: (_, status, __) {
+              return status.getAppBar(_selectedIndex)
+                  ? AppBar(
+                backgroundColor: _backgroundColors[_selectedIndex],
+                elevation: 0,
+                title: _screenTitle[_selectedIndex],
+                leading: GestureDetector(
+                  onTap: () => _scaffoldKey.currentState?.openDrawer(),
+                  child: Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: CircleAvatar(
+                      backgroundColor: Colors.transparent,
                       child: CircleAvatar(
                         backgroundColor: Colors.transparent,
-                        radius: 30,
-                        child: CircleAvatar(
-                          backgroundColor: Colors.transparent,
-                          radius: 32,
-                          backgroundImage: user?.avatar != null
-                              ? NetworkImage(user!.avatar)
-                              : AssetImage('assets/images/profile.png') as ImageProvider,
-                        ),
+                        backgroundImage: user?.avatar != null
+                            ? NetworkImage(user!.avatar)
+                            : const AssetImage('assets/images/profile.png'),
                       ),
                     ),
                   ),
-                  actions: [
-                    IconButton(
-                      icon: Icon(Icons.mic_none_rounded, color: Colors.white),
-                      onPressed: () {
-                        context.read<StatusProvider>().toggleAppBar(false);
-                        _navigatorKeys[_selectedIndex].currentState?.push(
-                          MaterialPageRoute(builder: (_) => VoiceScreen()),
-                        ).then((_) {
-                          if (mounted) {
-                            context.read<StatusProvider>().toggleAppBar(true);
-                          }
-                        });
-                      },
-                    ),
-                    IconButton(
-                      icon: Icon(Icons.search, color: Colors.white),
-                      onPressed: () {
-                        context.read<StatusProvider>().toggleAppBar(false);
-                        _navigatorKeys[_selectedIndex].currentState?.push(
-                          MaterialPageRoute(builder: (_) => SearchScreen()),
-                        ).then((_) {
-                          if (mounted) {
-                            context.read<StatusProvider>().toggleAppBar(true);
-                          }
-                        });
-                      },
-                    ),
-                  ],
-                )
-                    : const SizedBox.shrink();
-              },
-            ),
+                ),
+                actions: [
+                  IconButton(
+                    icon: const Icon(Icons.mic_none_rounded,
+                        color: Colors.white),
+                    onPressed: () {
+                      _navigatorKeys[_selectedIndex].currentState?.push(
+                        MaterialPageRoute(
+                          builder: (_) => VoiceScreen(),
+                          settings: const RouteSettings(name: "voice"),
+                        ),
+                      );
+                    },
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.search, color: Colors.white),
+                    onPressed: () {
+                      _navigatorKeys[_selectedIndex].currentState?.push(
+                        MaterialPageRoute(
+                          builder: (_) => SearchScreen(),
+                          settings: const RouteSettings(name: "search"),
+                        ),
+                      );
+                    },
+                  )
+                ],
+              )
+                  : const SizedBox.shrink();
+            },
           ),
+        ),
 
-
-        //body
+        // ------------------ BODY ------------------
         body: Stack(
           children: [
-
             Positioned.fill(
               child: IndexedStack(
                 index: _selectedIndex,
@@ -334,32 +303,33 @@ class _MainHomeState extends State<MainHome> {
               ),
             ),
 
-            // MiniPlayer luôn hiển thị ở dưới cùng
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: audioProvider.currentSongPath != null && audioProvider.currentSongPath!.isNotEmpty
-                  ? GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    PageTransition(
-                      type: PageTransitionType.bottomToTop,
-                      child: const JustAudioDemo(),
-                    ),
-                  );
-                },
-                child: MiniPlayer(),
-              )
-                  : SizedBox.shrink(),
-            )
+            // MINI PLAYER
+            if (audioProvider.currentSongPath != null &&
+                audioProvider.currentSongPath!.isNotEmpty)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      PageTransition(
+                        type: PageTransitionType.bottomToTop,
+                        child: const JustAudioDemo(),
+                      ),
+                    );
+                  },
+                  child: MiniPlayer(),
+                ),
+              ),
           ],
         ),
 
+        // ------------------ BOTTOM NAV ------------------
         bottomNavigationBar: Container(
           height: 70,
-          decoration: BoxDecoration(
+          decoration: const BoxDecoration(
             color: Colors.black26,
             boxShadow: [
               BoxShadow(
@@ -373,10 +343,10 @@ class _MainHomeState extends State<MainHome> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildNavItem(Icons.home_rounded, 'Trang Chủ', 0),
-                _buildNavItem(Icons.local_fire_department_rounded, 'Hot', 1),
-                _buildNavItem(Icons.library_music_rounded, 'Thư Viện', 2),
-                _buildNavItem(Icons.workspace_premium_rounded, 'Premium', 3),
+                _navItem(Icons.home_rounded, 'Trang Chủ', 0),
+                _navItem(Icons.local_fire_department_rounded, 'Hot', 1),
+                _navItem(Icons.library_music_rounded, 'Thư Viện', 2),
+                _navItem(Icons.workspace_premium_rounded, 'Premium', 3),
               ],
             ),
           ),
@@ -385,9 +355,10 @@ class _MainHomeState extends State<MainHome> {
     );
   }
 
-
-  Widget _buildNavItem(IconData icon, String label, int index) {
+  // ------------------ NAV ITEM ------------------
+  Widget _navItem(IconData icon, String label, int index) {
     final isSelected = _selectedIndex == index;
+
     return GestureDetector(
       onTap: () {
         if (index == _selectedIndex) {
@@ -396,16 +367,12 @@ class _MainHomeState extends State<MainHome> {
               .popUntil((route) => route.isFirst);
         } else {
           setState(() => _selectedIndex = index);
-          context.read<StatusProvider>().toggleAppBar(true);
         }
       },
       child: AnimatedContainer(
-        duration: Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
+        duration: const Duration(milliseconds: 300),
         padding: EdgeInsets.symmetric(
-          horizontal: isSelected ? 16 : 12,
-          vertical: 8,
-        ),
+            horizontal: isSelected ? 16 : 12, vertical: 8),
         decoration: BoxDecoration(
           color: isSelected
               ? Colors.indigoAccent.withOpacity(0.1)
@@ -415,40 +382,44 @@ class _MainHomeState extends State<MainHome> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              icon,
-              color: isSelected ? Colors.indigoAccent : Colors.grey.shade400,
-              size: isSelected ? 28 : 24,
-            ),
-            SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: isSelected ? Colors.indigoAccent : Colors.grey.shade400,
-                fontSize: isSelected ? 12 : 11,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-              ),
-            ),
+            Icon(icon,
+                color: isSelected
+                    ? Colors.indigoAccent
+                    : Colors.grey.shade400,
+                size: isSelected ? 28 : 24),
+            const SizedBox(height: 4),
+            Text(label,
+                style: TextStyle(
+                  color: isSelected
+                      ? Colors.indigoAccent
+                      : Colors.grey.shade400,
+                  fontSize: isSelected ? 12 : 11,
+                )),
           ],
         ),
       ),
     );
   }
 
-  ImageProvider getUserAvatar(UserModel user) {
-    if (user.avatarFirstTime != null && user.avatarFirstTime!.isNotEmpty) {
-      final file = File(user.avatarFirstTime!);
-      if (file.existsSync()) return FileImage(file);
-    }
-
-    if (user.avatar != null && user.avatar!.isNotEmpty) {
-      return NetworkImage(user.avatar!);
-    }
-
-    return AssetImage('assets/images/profile.png');
+  // ------------------ NAVIGATION (MULTI NAVIGATOR) ------------------
+  Widget _buildNavigator(int index, Widget child) {
+    return Navigator(
+      key: _navigatorKeys[index],
+      observers: [
+        HideAppBarObserver(index, (tab, show) {
+          context.read<StatusProvider>().setAppBar(tab, show);
+        }),
+      ],
+      onGenerateRoute: (settings) {
+        return MaterialPageRoute(
+          builder: (_) => child,
+          settings: settings,
+        );
+      },
+    );
   }
 
-  // Hàm phụ để tái sử dụng item
+  // Drawer Item UI
   Widget _buildDrawerItem({
     required IconData icon,
     required String text,
@@ -467,18 +438,7 @@ class _MainHomeState extends State<MainHome> {
           fontSize: 16,
         ),
       ),
-      hoverColor: Colors.blueAccent.withOpacity(0.1),
       onTap: onTap,
-    );
-  }
-
-
-  Widget _buildNavigator(int index, Widget child) {
-    return Navigator(
-      key: _navigatorKeys[index],
-      onGenerateRoute: (routeSettings) {
-        return MaterialPageRoute(builder: (_) => child);
-      },
     );
   }
 }

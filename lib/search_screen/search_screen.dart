@@ -30,7 +30,7 @@ class SearchScreenState extends State<SearchScreen> {
       if (res.statusCode == 200) {
         final data = json.decode(res.body);
 
-        // 🧩 Kiểm tra đúng định dạng JSON
+        // Kiểm tra đúng định dạng JSON
         if (data is Map &&
             data["albums"] is List &&
             data["songs"] is List) {
@@ -39,7 +39,7 @@ class SearchScreenState extends State<SearchScreen> {
             songs = List.from(data["songs"]);
           });
         } else {
-          print("⚠️ Dữ liệu không hợp lệ: $data");
+          print("Dữ liệu không hợp lệ: $data");
           setState(() {
             albums = [];
             songs = [];
@@ -47,10 +47,10 @@ class SearchScreenState extends State<SearchScreen> {
         }
       }
       else {
-        debugPrint("❌ Lỗi HTTP ${res.statusCode}");
+        debugPrint("Lỗi HTTP ${res.statusCode}");
       }
     } catch (e) {
-      debugPrint("❌ Lỗi khi tìm kiếm: $e");
+      debugPrint("Lỗi khi tìm kiếm: $e");
     }
 
     setState(() => isLoading = false);
@@ -59,18 +59,18 @@ class SearchScreenState extends State<SearchScreen> {
   @override
   void initState() {
     super.initState();
-    searchAll(""); // tải mặc định album + song mới nhất
+    searchAll("");
   }
 
   @override
   Widget build(BuildContext context) {
     final hasResults = albums.isNotEmpty || songs.isNotEmpty;
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0F1C),
       body: SafeArea(
         child: Column(
           children: [
-            // 🔹 Thanh tìm kiếm
+            SizedBox(height: 20),
+            //  Thanh tìm kiếm
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 60, 12, 8),
               child: Row(
@@ -107,7 +107,7 @@ class SearchScreenState extends State<SearchScreen> {
               ),
             ),
 
-            // 🔹 Danh sách kết quả
+            //  Danh sách kết quả
             Expanded(
               child: isLoading
                   ? const Center(
@@ -221,7 +221,7 @@ class SearchScreenState extends State<SearchScreen> {
                       trailing: const Icon(Icons.play_arrow,
                           color: Colors.white54),
                       onTap: () {
-                        // 👉 ở đây bạn mở player hoặc SongDetailScreen
+                        // ở đây bạn mở player hoặc SongDetailScreen
                       },
                     )),
                   ],

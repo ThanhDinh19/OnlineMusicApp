@@ -1,15 +1,17 @@
-import 'dart:convert';
-import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'models/user_model.dart';
+import 'package:flutter/cupertino.dart';
 
+class StatusProvider extends ChangeNotifier {
+  Map<int, bool> appBarState = {
+    0: true,
+    1: true,
+    2: true,
+    3: true,
+  };
 
-class StatusProvider with ChangeNotifier {
-
-  bool showAppBar = true;
-
-  void toggleAppBar(bool show) {
-    showAppBar = show;
+  void setAppBar(int tab, bool value) {
+    appBarState[tab] = value;
     notifyListeners();
   }
+
+  bool getAppBar(int tab) => appBarState[tab] ?? true;
 }

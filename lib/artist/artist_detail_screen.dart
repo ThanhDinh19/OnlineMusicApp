@@ -6,78 +6,57 @@ import 'package:provider/provider.dart';
 import '../home_screens/mini_player.dart';
 import '../provider/audio_player_provider.dart';
 import '../provider/favorite_album_provider.dart';
+import '../provider/status_provider.dart';
 import '../provider/user_provider.dart';
 import '../home_screens/just_audio_demo.dart';
 import 'package:page_transition/page_transition.dart';
 
-class AlbumDetailScreen extends StatefulWidget {
-  final String albumId;
-  final String albumName;
-  final String albumCover;
+class ArtistDetailScreen extends StatefulWidget {
+  final String artistId;
 
-  const AlbumDetailScreen({
-    required this.albumId,
-    required this.albumName,
-    required this.albumCover,
+  const ArtistDetailScreen({
+    required this.artistId,
     super.key,
   });
 
   @override
-  _AlbumDetailScreenState createState() => _AlbumDetailScreenState();
+  ArtistDetailScreenState createState() =>ArtistDetailScreenState();
 }
 
-class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
+class ArtistDetailScreenState extends State<ArtistDetailScreen> {
   bool hasChangedFavorite = false;
   bool isFavorite = false;
-  List<Map<String, dynamic>> songs = [];
   int? currentIndex;
+  String avatarUrl = '';
+  String artistName = '';
 
   @override
   void initState() {
     super.initState();
-    // kiểm tra trạng thái favorite album
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
-    final userId = userProvider.user?.id ?? "";
-
-    if (userId.isNotEmpty) {
-      checkFavoriteStatus(userId, widget.albumId);
-      hasChangedFavorite = false; // ban đầu chưa thay đổi gì
-    }
-
-    // load danh sách nhạc của album
-    loadSongs();
+    fetchSongsByArtist(widget.artistId.toString());
   }
 
-  Future<void> loadSongs() async {
-    final url =
-        "http://10.0.2.2:8081/music_API/online_music/album/get_album_songs.php?id=${widget.albumId}";
-    print("Fetching songs from: $url");
+  List<Map<String, dynamic>> artistSongs = [];
+  Future<void> fetchSongsByArtist(String artistId) async {
+    final url = Uri.parse(
+        "http://10.0.2.2:8081/music_API/online_music/artist/get_songs_by_artist.php");
 
-    try {
-      final res = await http.get(Uri.parse(url));
-      print("Status: ${res.statusCode}");
-      print("Response body: ${res.body}");
+    final response = await http.post(url, body: {
+      "artist_id": artistId,
+    });
 
-      if (res.statusCode == 200) {
-        final data = json.decode(res.body);
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
 
-        if (data is List) {
-          setState(() {
-            songs = List<Map<String, dynamic>>.from(data);
-          });
-        } else if (data is Map && data.containsKey("error")) {
-          print("Lỗi API: ${data['error']}");
-        } else {
-          print("Dữ liệu không đúng dạng List");
-        }
-      } else {
-        print("HTTP lỗi: ${res.statusCode}");
+      if (data["status"] == "success") {
+        setState(() {
+          artistSongs = List<Map<String, dynamic>>.from(data["songs"]);
+          avatarUrl = data["avatar_url"] ?? "";
+          artistName = data["artist_name"] ?? "";
+        });
       }
-    } catch (e) {
-      print("Lỗi khi load bài hát: $e");
     }
   }
-
 
   void showToast(String msg) {
     Fluttertoast.showToast(
@@ -155,22 +134,19 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final userProvider = Provider.of<UserProvider>(context);
-    final userId = userProvider.user?.id ?? "";
-
     return Scaffold(
       body: SafeArea(
         child: Column(
           children: [
-            // 🔹 Header (ảnh + tên album)
+            // Header (ảnh + tên nghệ sĩ)
             Stack(
               children: [
                 Container(
-                  height: 250,
+                  height: 320,
                   width: double.infinity,
                   decoration: BoxDecoration(
                     image: DecorationImage(
-                      image: NetworkImage(widget.albumCover),
+                      image: NetworkImage(avatarUrl.toString()),
                       fit: BoxFit.cover,
                     ),
                   ),
@@ -192,7 +168,9 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
                   left: 10,
                   child: IconButton(
                     icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
-                    onPressed: () => Navigator.pop(context, hasChangedFavorite),
+                    onPressed: () {
+                      Navigator.pop(context);
+                    },
                   ),
                 ),
                 Positioned(
@@ -204,7 +182,7 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
                     children: [
                       Expanded(
                         child: Text(
-                          widget.albumName,
+                          artistName,
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 24,
@@ -223,13 +201,6 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
                           setState(() {
                             isFavorite = !isFavorite;
                           });
-
-                          final favProvider = Provider.of<FavoriteAlbumProvider>(context, listen: false);
-                          await favProvider.toggleAlbumFavorite(userId, widget.albumId, isFavorite);
-
-                          showToast(isFavorite
-                              ? "Đã thêm vào yêu thích"
-                              : "Đã xóa khỏi yêu thích");
                         },
                       )
                     ],
@@ -240,22 +211,22 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
 
             const Divider(color: Colors.white24),
 
-            // 🔹 Danh sách bài hát
+            //  Danh sách bài hát
             Expanded(
-              child: songs.isEmpty
+              child: artistSongs.isEmpty
                   ? const Center(
                 child: CircularProgressIndicator(color: Colors.white70),
               )
                   : ListView.builder(
                 padding: const EdgeInsets.fromLTRB(8, 8, 8, 100),
-                itemCount: songs.length,
+                itemCount: artistSongs.length,
                 itemBuilder: (context, index) {
-                  final song = songs[index];
+                  final song = artistSongs[index];
                   final songTitle = song["title"] ?? "";
-                  final songArtist = song["artist"] ?? "";
+                  final playCount = song["play_count"] ?? "";
                   final coverUrl = song["cover_url"] ?? "";
                   final audioUrl = song["audio_url"] ?? "";
-
+                    print(artistSongs);
                   return ListTile(
                     leading: ClipRRect(
                       borderRadius: BorderRadius.circular(8),
@@ -278,7 +249,7 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
                       ),
                     ),
                     subtitle: Text(
-                      songArtist,
+                      playCount.toString(),
                       style: const TextStyle(color: Colors.white70),
                     ),
                     trailing: const Icon(Icons.more_horiz, color: Colors.white70),
@@ -288,7 +259,7 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
                       final audioProvider = Provider.of<AudioPlayerProvider>(context, listen: false);
 
                       // Gọi API để lấy toàn bộ danh sách
-                      List<Map<String, dynamic>> songsList = songs;
+                      List<Map<String, dynamic>> songsList = artistSongs;
 
                       // Set playlist & bài hiện tại
                       await audioProvider.setPlaylist(songsList, startIndex: index,);
