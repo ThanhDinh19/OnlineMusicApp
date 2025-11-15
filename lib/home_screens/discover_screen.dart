@@ -29,8 +29,33 @@ class DiscoverScreenState extends State<DiscoverScreen> {
     fetchAlbums();
     fetchStarterSongs();
     fetchRecommendedSongs();
+    fetchRecentAlbums();
   }
 
+  // lấy những albums có bài hát nghe gần đây
+  List<Map<String, dynamic>> recentAlbums = [];
+  bool isLoadingRecent = true;
+  Future<void> fetchRecentAlbums() async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final userId = userProvider.user?.id;
+
+    final url = Uri.parse(
+        "http://10.0.2.2:8081/music_API/online_music/album/get_recent_albums.php?user_id=$userId");
+
+    final res = await http.get(url);
+
+    if (res.statusCode == 200) {
+      final data = jsonDecode(res.body);
+      if (data["status"] == "success") {
+        setState(() {
+          recentAlbums = List<Map<String, dynamic>>.from(data["albums"]);
+          isLoadingRecent = false;
+        });
+      }
+    } else {
+      debugPrint("Lỗi khi tải recent albums");
+    }
+  }
 
   // fetch favorite albums for new account
   Future<void> fetchAlbums() async {
@@ -132,103 +157,202 @@ class DiscoverScreenState extends State<DiscoverScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Để bạn bắt đầu
-            const Text(
-              'Để bạn bắt đầu',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
+            if(recentAlbums.isEmpty)...[
+              const Text(
+                'Để bạn bắt đầu',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            isLoading ? const Center(child: CircularProgressIndicator(color: Colors.blue)) :
-            SizedBox(
-              height: 160,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: albums.length,
-                itemBuilder: (context, index) {
-                  final item = albums[index];
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 12),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(12), // bo góc khi click
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => AlbumDetailScreen(
-                              albumId: item['album_id'].toString(),
-                              albumName: item['album_name'],
-                              albumCover: item['cover_url'],
+              const SizedBox(height: 12),
+              isLoading ? const Center(child: CircularProgressIndicator(color: Colors.blue)) :
+              SizedBox(
+                height: 160,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: albums.length,
+                  itemBuilder: (context, index) {
+                    final item = albums[index];
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 12),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(12), // bo góc khi click
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => AlbumDetailScreen(
+                                albumId: item['album_id'].toString(),
+                                albumName: item['album_name'],
+                                albumCover: item['cover_url'],
+                              ),
                             ),
-                          ),
-                        );
-                      },
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(12),
-                                child: Image.network(
-                                  item['cover_url'] ?? '',
-                                  width: 130,
-                                  height: 130,
-                                  fit: BoxFit.cover,
-                                ),
-                              ),
-                              // Background nửa mờ
-                              Container(
-                                width: 130,
-                                height: 130,
-                                decoration: BoxDecoration(
+                          );
+                        },
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                ClipRRect(
                                   borderRadius: BorderRadius.circular(12),
-                                  color: Colors.black.withOpacity(0.1),
-                                ),
-                              ),
-                              // Text ở giữa ảnh
-                              Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withOpacity(0.5),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                margin:  EdgeInsets.only(left: 60,top: 90),
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                child: const Text(
-                                  'Album',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 0.5,
+                                  child: Image.network(
+                                    item['cover_url'] ?? '',
+                                    width: 130,
+                                    height: 130,
+                                    fit: BoxFit.cover,
                                   ),
                                 ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            item['album_name'] ?? "Unknown",
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
+                                // Background nửa mờ
+                                Container(
+                                  width: 130,
+                                  height: 130,
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(12),
+                                    color: Colors.black.withOpacity(0.1),
+                                  ),
+                                ),
+                                // Text ở giữa ảnh
+                                Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withOpacity(0.5),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  margin:  EdgeInsets.only(left: 60,top: 90),
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  child: const Text(
+                                    'Album',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 2,
-                          ),
-                        ],
+                            const SizedBox(height: 8),
+                            Text(
+                              item['album_name'] ?? "Unknown",
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 2,
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
               ),
-            ),
+            ]
+            else if(recentAlbums.isNotEmpty)...[
+              const Text(
+                'Albums có bài bạn nghe gần đây',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 160,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: recentAlbums.length,
+                  itemBuilder: (context, index) {
+                    final item = recentAlbums[index];
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 12),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(12), // bo góc khi click
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => AlbumDetailScreen(
+                                albumId: item['album_id'].toString(),
+                                albumName: item['album_name'],
+                                albumCover: item['cover_url'],
+                              ),
+                            ),
+                          );
+                        },
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Image.network(
+                                    item['cover_url'] ?? '',
+                                    width: 130,
+                                    height: 130,
+                                    fit: BoxFit.cover,
+                                  ),
+                                ),
+                                // Background nửa mờ
+                                Container(
+                                  width: 130,
+                                  height: 130,
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(12),
+                                    color: Colors.black.withOpacity(0.1),
+                                  ),
+                                ),
+                                // Text ở giữa ảnh
+                                Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withOpacity(0.5),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  margin:  EdgeInsets.only(left: 60,top: 90),
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  child: const Text(
+                                    'Album',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              item['album_name'] ?? "Unknown",
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 2,
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
 
-            const SizedBox(height: 24),
+
+            const SizedBox(height: 15),
 
             // Dành riêng cho bạn
             if(recommendedSongs.isEmpty && starterSongs.isNotEmpty)...[
