@@ -5,9 +5,6 @@ import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import '../home_screens/mini_player.dart';
 import '../provider/audio_player_provider.dart';
-import '../provider/favorite_album_provider.dart';
-import '../provider/status_provider.dart';
-import '../provider/user_provider.dart';
 import '../home_screens/just_audio_demo.dart';
 import 'package:page_transition/page_transition.dart';
 
@@ -106,26 +103,6 @@ class ArtistDetailScreenState extends State<ArtistDetailScreen> {
     }
   }
 
-  Future<void> increasePlayCount(String songId) async {
-    final url = Uri.parse("http://10.0.2.2:8081/music_API/online_music/song/update_play_count.php");
-
-    try {
-      final res = await http.post(
-        url,
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({"song_id": songId}),
-      );
-
-      final data = jsonDecode(res.body);
-      if (data["status"] == "success") {
-        print("🎧 Play count updated: ${data["play_count"]}");
-      } else {
-        print("⚠️ Lỗi cập nhật lượt nghe: ${data["message"]}");
-      }
-    } catch (e) {
-      print("Lỗi khi gọi API: $e");
-    }
-  }
 
   @override
   void dispose() {
@@ -264,7 +241,6 @@ class ArtistDetailScreenState extends State<ArtistDetailScreen> {
                       // Set playlist & bài hiện tại
                       await audioProvider.setPlaylist(songsList, startIndex: index,);
 
-                      await increasePlayCount(audioProvider.currentSongId.toString());
 
                       GestureDetector(
                         onTap: () {

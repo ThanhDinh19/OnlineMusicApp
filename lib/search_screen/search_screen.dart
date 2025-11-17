@@ -149,6 +149,7 @@ class SearchScreenState extends State<SearchScreen> {
                                   albumCover: album["cover_url"] ??
                                       "http://10.0.2.2:8081/music_API/online_music/album/album_cover/default.png",
                                 ),
+                            settings: const RouteSettings(name: "albumScreen"),
                           ),
                         );
                       },

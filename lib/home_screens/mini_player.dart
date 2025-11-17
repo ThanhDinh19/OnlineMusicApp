@@ -85,7 +85,7 @@ class MiniPlayerState extends State<MiniPlayer> {
         children: [
           // =============== MINI PLAYER ROW ===============
           Container(
-            height: 60,
+            height: 55,
             padding: EdgeInsets.symmetric(horizontal: 16),
             child: Row(
               children: [

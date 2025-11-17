@@ -162,34 +162,12 @@ class TopChartScreenState extends State<TopChartScreen> {
           });
         }
       } else {
-        debugPrint("❌ HTTP Error: ${res.statusCode}");
+        debugPrint("HTTP Error: ${res.statusCode}");
         setState(() => loading = false);
       }
     } catch (e) {
-      debugPrint("❌ Error loading songs: $e");
+      debugPrint("Error loading songs: $e");
       setState(() => loading = false);
-    }
-  }
-
-  // đếm số lượng nhạc được nghe
-  Future<void> increasePlayCount(String songId) async {
-    final url = Uri.parse("http://10.0.2.2:8081/music_API/online_music/song/update_play_count.php");
-
-    try {
-      final res = await http.post(
-        url,
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({"song_id": songId}),
-      );
-
-      final data = jsonDecode(res.body);
-      if (data["status"] == "success") {
-        print("🎧 Play count updated: ${data["play_count"]}");
-      } else {
-        print("⚠️ Lỗi cập nhật lượt nghe: ${data["message"]}");
-      }
-    } catch (e) {
-      print("Lỗi khi gọi API: $e");
     }
   }
 
@@ -494,8 +472,6 @@ class TopChartScreenState extends State<TopChartScreen> {
 
             // Set playlist & bài hiện tại
             await audioProvider.setPlaylist(songsList, startIndex: index,);
-
-            await increasePlayCount(audioProvider.currentSongId.toString());
 
             GestureDetector(
               onTap: () {

@@ -35,4 +35,5 @@ class FavoriteAlbumProvider with ChangeNotifier {
     }
     notifyListeners();
   }
+
 }

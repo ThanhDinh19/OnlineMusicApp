@@ -94,16 +94,6 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
     });
   }
 
-  Future<void> toggleFavoriteAlbum(String userId, String albumId, bool isFav) async {
-    final url = Uri.parse("http://10.0.2.2:8081/music_API/online_music/album/add_favorite_album.php");
-    final response = await http.post(url, body: {
-      "user_id": userId,
-      "album_id": albumId,
-      "action": isFav ? "add" : "remove"
-    });
-
-    print(response.body);
-  }
 
   Future<void> checkFavoriteStatus(String userId, String albumId) async {
     final url = Uri.parse(

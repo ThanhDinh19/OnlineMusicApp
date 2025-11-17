@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import '../audio/music_wave.dart';
 import '../handle_image/rotating_image.dart';
 import '../provider/audio_player_provider.dart';
+import '../provider/favorite_song_provider.dart';
 import '../provider/user_provider.dart';
 
 class JustAudioDemo extends StatefulWidget {
@@ -23,14 +24,22 @@ class _JustAudioDemoState extends State<JustAudioDemo> {
 
   Color dominantColor = Colors.grey;
   bool isFavorite = false;
-  Color heartColor = Colors.white;
-  bool loading = true;
+  bool hasChangedFavorite = false;
 
   @override
   void initState() {
     super.initState();
 
     _audioProvider = Provider.of<AudioPlayerProvider>(context, listen: false);
+
+    // kiểm tra trạng thái favorite album
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final userId = userProvider.user?.id ?? "";
+
+    if (userId.isNotEmpty) {
+      checkFavoriteStatus();
+      hasChangedFavorite = false; // ban đầu chưa thay đổi gì
+    }
 
     // Lấy màu từ ảnh bìa khi mở screen
     if (_audioProvider.currentCover != null &&
@@ -45,8 +54,6 @@ class _JustAudioDemoState extends State<JustAudioDemo> {
         updateBackgroundColor(cover);
       }
     });
-
-    _loadFavoriteStatus();
   }
 
   //  LẤY MÀU TỪ ẢNH
@@ -55,7 +62,6 @@ class _JustAudioDemoState extends State<JustAudioDemo> {
       final palette = await PaletteGenerator.fromImageProvider(
         NetworkImage(imageUrl),
       );
-
       setState(() {
         dominantColor = palette.dominantColor?.color ?? Colors.grey;
       });
@@ -84,7 +90,6 @@ class _JustAudioDemoState extends State<JustAudioDemo> {
 
     setState(() {
       isFavorite = !isFavorite;
-      heartColor = isFavorite ? Colors.red : Colors.white;
     });
 
     final url = Uri.parse(
@@ -107,26 +112,28 @@ class _JustAudioDemoState extends State<JustAudioDemo> {
   }
 
   // Load trạng thái favorite
-  Future<void> _loadFavoriteStatus() async {
+  Future<void> checkFavoriteStatus() async {
     final audioProvider = _audioProvider;
     final userProvider = Provider.of<UserProvider>(context, listen: false);
 
     final url = Uri.parse(
         "http://10.0.2.2:8081/music_API/online_music/song/get_favorite_status.php"
             "?user_id=${userProvider.user!.id}&song_id=${audioProvider.currentSongId}");
-
     try {
       final res = await http.get(url);
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
-        setState(() {
-          isFavorite = data["status"] == true;
-          heartColor = isFavorite ? Colors.red : Colors.white;
-          loading = false;
-        });
+        if(data["status"] == true){
+          setState(() {
+            isFavorite = true;
+          });
+        }else {
+          setState(() {
+            isFavorite = false;
+          });
+        }
       }
     } catch (_) {
-      loading = false;
     }
   }
 
@@ -134,16 +141,17 @@ class _JustAudioDemoState extends State<JustAudioDemo> {
   Widget build(BuildContext context) {
     final audioProvider = Provider.of<AudioPlayerProvider>(context);
     final player = audioProvider.player;
+    final userProvider = Provider.of<UserProvider>(context);
 
     return Scaffold(
       extendBodyBehindAppBar: true,
       backgroundColor: Colors.black,
 
-      // ⭐ APPBAR
+      //  APPBAR
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.keyboard_arrow_down, size: 40),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => Navigator.pop(context, hasChangedFavorite),
         ),
         centerTitle: true,
         backgroundColor: Colors.transparent,
@@ -223,13 +231,20 @@ class _JustAudioDemoState extends State<JustAudioDemo> {
                 ),
 
                 IconButton(
-                  icon: FaIcon(
-                    isFavorite
-                        ? FontAwesomeIcons.solidHeart
-                        : FontAwesomeIcons.heart,
-                    color: heartColor,
+                  icon: Icon(
+                    isFavorite ? Icons.favorite : Icons.favorite_border,
+                    color: isFavorite ? Colors.redAccent : Colors.white,
+                    size: 30,
                   ),
-                  onPressed: toggleFavorite,
+                  onPressed: () async {
+                    setState(() {
+                      isFavorite = !isFavorite;
+                    });
+
+                    final favProvider = Provider.of<FavoriteSongProvider>(context, listen: false);
+                    print("userID: ${userProvider.user!.id.toString()}, songId: ${audioProvider.currentSongId.toString()}, fav ${isFavorite}");
+                    await favProvider.toggleSongFavorite(userProvider.user!.id.toString(), audioProvider.currentSongId.toString(), isFavorite);
+                  },
                 ),
               ],
             ),

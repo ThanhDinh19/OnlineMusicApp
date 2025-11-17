@@ -89,33 +89,23 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
     return [];
   }
 
-  List<Map<String, dynamic>> playlists = [];
+  //List<Map<String, dynamic>> playlists = [];
 
   // load playlist từ csdl
-  Future<void> loadPlaylists() async {
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
-    final userId = userProvider.user?.id;
-
-    if (userId == null) return;
-
-    String url = "http://10.0.2.2:8081/music_API/save_playlist_api/get_playlists.php";
-
-    var response = await http.post(
-      Uri.parse(url),
-      body: json.encode({"user_id": userId.toString()}),
-    );
+  List<Map<String, dynamic>> onlinePlaylists = [];
+  Future<void> getUserPlaylists() async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false).user;
+    final uId = userProvider!.id.toString();
+    final url = Uri.parse("http://10.0.2.2:8081/music_API/online_music/playlist/get_user_playlists.php?user_id=$uId");
+    final response = await http.get(url);
 
     if (response.statusCode == 200) {
-      var data = json.decode(response.body);
+      final data = jsonDecode(response.body);
       if (data["status"] == "success") {
         setState(() {
-          playlists = List<Map<String, dynamic>>.from(data["playlists"]);
+          onlinePlaylists = List<Map<String, dynamic>>.from(data["playlists"]);
         });
-      } else {
-        print("Error: ${data["message"]}");
       }
-    } else {
-      print("Failed to connect to server");
     }
   }
 
@@ -125,8 +115,8 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
     final audioProvider = Provider.of<AudioPlayerProvider>(context, listen: false);
     audioProvider.playlistName = widget.playlistName;
     super.initState();
-    fetchTopSongs();
     fetchOnlineSongs();
+    fetchStarterSongs();
     getPlaylistSongs(user!.id.toString(), widget.playlistId.toString());
     playlistName = widget.playlistName.toString();
   }
@@ -163,46 +153,39 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
       Fluttertoast.cancel(); // ẩn thủ công sau 1 giây
     });
   }
+  void showToast(String message) {
+    Fluttertoast.showToast(
+      msg: message,
+      gravity: ToastGravity.CENTER,       // vị trí giữa màn hình
+      backgroundColor: Colors.black45.withOpacity(0.6),      // màu nền
+      textColor: Colors.white,            // màu chữ
+      fontSize: 16.0,                     // cỡ chữ
+    );
+
+    Future.delayed(Duration(seconds: 1), () {
+      Fluttertoast.cancel(); // ẩn thủ công sau 1 giây
+    });
+  }
 
   // lưu song vào playlists
-  Future saveSongToPlaylist(BuildContext context, String songId, List<dynamic> playlistSelected) async{
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
-    final userId = userProvider.user?.id;
+  Future<void> saveSongToPlaylists(String songId, List<int> playlistIds) async {
+    final url = Uri.parse(
+      "http://10.0.2.2:8081/music_API/online_music/playlist/add_song_to_playlists.php",
+    );
 
-    String url = "http://10.0.2.2:8081/music_API/save_playlist_api/save_song_to_playlist.php";
-
-    var data = {
-      'user_id': userId.toString(),
-      'song_id': songId,
-      'playlist_selected': playlistSelected,
-    };
-
-    var response = await http.post(Uri.parse(url), body: json.encode(data));
+    final response = await http.post(
+      url,
+      body: {
+        "song_id": songId,
+        "playlist_ids": jsonEncode(playlistIds),
+      },
+    );
 
     if (response.statusCode == 200) {
-      print("📩 Server response: ${response.body}");
-
-      // Kiểm tra nếu response không phải JSON
-      if (response.body.startsWith('<')) {
-        print("⚠️ Server trả về HTML lỗi PHP, không thể parse JSON.");
-        return;
-      }
-
-      var msg = jsonDecode(response.body);
-      if (msg['saving'] == true) {
-
-        print("✅ Lưu thành công, playlist chọn: ${msg['added_to']}");
-        print(" error: ${msg["error"]}");
-
-        showSuccessToast("Đã thêm vào danh sách phát");
-      } else {
-        showMessage(msg["message"]);
-      }
-    }
-    else {
-      setState(() {
-        showMessage("Error during connecting to Server.");
-      });
+      final data = jsonDecode(response.body);
+      print("Kết quả: $data");
+    } else {
+      print("Lỗi HTTP: ${response.statusCode}");
     }
   }
 
@@ -212,35 +195,33 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
     final userId = userProvider.user?.id;
     //Login API URL
     //use your local IP address instead of localhost or use Web API
-    String url = "http://10.0.2.2:8081/music_API/save_playlist_api/save_playlist.php";
-
-    // Getting username and password from Controller
-    var data = {
-      'user_id': userId.toString(),
-      'namePlaylist': namePlaylistController,
-    };
-
-    //Starting Web API Call.
-    var response = await http.post(Uri.parse(url), body: json.encode(data));
+    final response = await http.post(
+      Uri.parse("http://10.0.2.2:8081/music_API/online_music/playlist/create_playlist.php"),
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({
+        "user_id": userId.toString(),
+        "name": namePlaylistController,
+      }),
+    );
     if (response.statusCode == 200) {
       //Server response into variable
       print(response.body);
-      var msg = jsonDecode(response.body);
+      final data = jsonDecode(response.body);
 
       //Check Saving Status
-      if (msg['saving'] == true) {
+      if (data["status"] == "success") {
         print("Save playlist into database successfully");
 
       } else {
         setState(() {
           //Show Error Message Dialog
-          showMessage(msg["message"]);
+          showToast("Lỗi khi tạo playlist");
         });
       }
     } else {
       setState(() {
         //Show Error Message Dialog
-        showMessage("Error during connecting to Server.");
+        showToast("Lỗi kết nối mạng");
       });
     }
   }
@@ -262,11 +243,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
             return Container(
               padding: EdgeInsets.symmetric(horizontal: 20, vertical: 20),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Color(0xFF1A1A2F), Color(0xFF44444E) ],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                ),
+                color: Color(0xFF1E201E),
                 borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
               ),
               child: SingleChildScrollView( // SingleChildScrollView tránh overflow khi bàn phím bật.
@@ -285,7 +262,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                       ),
                     ),
                     Text(
-                      "🎧 Đặt tên cho danh sách phát của bạn",
+                      "Đặt tên cho playlist của bạn",
                       style: TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
@@ -316,7 +293,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                       children: [
                         TextButton(
                           style: TextButton.styleFrom(
-                            foregroundColor: Colors.redAccent,
+                            foregroundColor: Colors.white,
                             padding: EdgeInsets.symmetric(
                                 horizontal: 25, vertical: 14),
                           ),
@@ -328,7 +305,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                         ),
                         ElevatedButton(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.blueAccent,
+                            backgroundColor: Colors.black38,
                             foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
@@ -341,9 +318,13 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                             if (name.isNotEmpty) {
                               onCreate(name);
                               handle_new_playlist(context, name).then((_) {
-                                loadPlaylists();
+                                getUserPlaylists();
                               });
+                              showToast("Đã tạo playlist");
                               Navigator.pop(context);
+                            }
+                            else{
+                              showToast("Hãy đặt tên cho playlist");
                             }
                           },
                           child: Text(
@@ -367,7 +348,6 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
 
   // tạo list trạng thái chọn
   List<bool> selectedPlaylists = [];
-
   void addSongToPlaylist(String song_id) {
     String songId = song_id;
     showModalBottomSheet(
@@ -377,61 +357,83 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setState) {
-            if (selectedPlaylists.length != playlists.length) {
-              selectedPlaylists = List.generate(playlists.length, (_) => false);
+            if (selectedPlaylists.length != onlinePlaylists.length) {
+              selectedPlaylists = List.generate(onlinePlaylists.length, (_) => false);
             }
 
             return DraggableScrollableSheet(
-              initialChildSize: 0.9,
+              initialChildSize: 0.95,
               minChildSize: 0.3,
-              maxChildSize: 0.9,
+              maxChildSize: 0.95,
               expand: false,
               builder: (context, scrollController) {
                 return Container(
                   decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Color(0xFF1A1A2F), Color(0xFF44444E)],
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                    ),
+                    color:  Color(0xFF1E201E),
                     borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
                   ),
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
                   child: Column(
                     children: [
-                      // 🔹 Header
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          TextButton(
-                            onPressed: () {
-                              Navigator.pop(context); // đóng bottom sheet
-                              Navigator.pop(context); // đóng luôn trang hiện tại
-                            },
-                            child: const Text('Hủy',
-                                style: TextStyle(color: Colors.white)),
-                          ),
-                          const Text(
-                            'Thêm vào danh sách phát',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
+                      // Header
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.black38,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            TextButton(
+                              onPressed: () {
+                                Navigator.pop(context); // đóng bottom sheet
+                                Navigator.pop(context); // đóng luôn trang hiện tại
+                              },
+                              child: const Text('Hủy',
+                                  style: TextStyle(color: Colors.white)),
                             ),
-                          ),
-                          const SizedBox(width: 60),
-                        ],
-                      ),
+                            const Text(
+                              'Thêm vào playlist',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                // Xử lý khi nhấn “Xong”
 
+                                // khởi tạo một arr id của playlist đc chọn
+                                List<int> selectedPlaylistIds = [
+                                  for (int i = 0; i < onlinePlaylists.length; i++)
+                                    if (selectedPlaylists[i]) onlinePlaylists[i]["playlist_id"]
+                                ];
+
+                                if(songId != null && songId.isNotEmpty && selectedPlaylistIds.isNotEmpty){
+                                  saveSongToPlaylists(songId, selectedPlaylistIds);
+                                  showSuccessToast("Đã thêm bài hát vào playlist");
+                                }
+
+                                print("Playlist được chọn: $selectedPlaylistIds");
+
+                                Navigator.pop(context);
+                              },
+                              child: const Text('Xong',
+                                  style: TextStyle(color: Colors.lightGreen)),
+                            ),
+                          ],
+                        ),
+                      ),
                       const SizedBox(height: 15),
 
-                      // 🔹 Nút tạo playlist mới
+                      // Nút tạo playlist mới
                       ElevatedButton.icon(
                         onPressed: () async {
                           await createNewPlaylist(context, (name) async {
 
                             // Gọi loadPlaylists để lấy lại danh sách
-                            await loadPlaylists();
+                            await getUserPlaylists();
 
                             // Cập nhật lại state của bottom sheet
                             setState(() {});
@@ -439,14 +441,14 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                         },
                         icon: const Icon(Icons.add, color: Colors.white),
                         label: const Text(
-                          'Tạo danh sách phát mới',
+                          'Tạo playlist mới',
                           style: TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
                               fontSize: 16),
                         ),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blueAccent,
+                          backgroundColor: Colors.black38,
                           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
@@ -457,27 +459,72 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
 
                       const SizedBox(height: 20),
 
-                      // 🔹 Danh sách playlist có thể cuộn
+                      // Danh sách playlist có thể cuộn
                       Expanded(
                         child: ListView.builder(
                           controller: scrollController,
-                          itemCount: playlists.length,
+                          itemCount: onlinePlaylists.length,
                           itemBuilder: (context, index) {
-                            final playlist = playlists[index];
+                            final playlist = onlinePlaylists[index];
+                            final songs = playlist["songs"] ?? [];
+                            final songCount = playlist["song_count"];
 
-                            print("play_count: ${playlist['song_count']}");
-
-                            return ListTile(
-                              leading: ClipRRect(
-                                borderRadius: BorderRadius.circular(10),
+                            Widget leadingWidget;
+                            if (songs.length >= 4) {
+                              leadingWidget = ClipRRect(
+                                borderRadius: BorderRadius.circular(5),
                                 child: Container(
                                   width: 60,
                                   height: 60,
                                   color: Colors.grey.shade800,
-                                  child: const Icon(Icons.library_music,
-                                      color: Colors.white54),
+                                  child: GridView.builder(
+                                    padding: EdgeInsets.zero,
+                                    physics: const NeverScrollableScrollPhysics(),
+                                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                      crossAxisCount: 2,
+                                      mainAxisSpacing: 1,
+                                      crossAxisSpacing: 1,
+                                    ),
+                                    itemCount: 4,
+                                    itemBuilder: (context, i) {
+                                      final song = songs[i];
+                                      return Image.network(
+                                        song["cover"] ?? "",
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (context, error, stackTrace) =>
+                                            Container(color: Colors.grey.shade700),
+                                      );
+                                    },
+                                  ),
                                 ),
-                              ),
+                              );
+                            } else if (songs.isNotEmpty) {
+                              leadingWidget = ClipRRect(
+                                borderRadius: BorderRadius.circular(5),
+                                child: Image.network(
+                                  songs[0]["cover"] ?? "",
+                                  width: 60,
+                                  height: 60,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      Container(color: Colors.grey.shade700),
+                                ),
+                              );
+                            } else {
+                              leadingWidget = ClipRRect(
+                                borderRadius: BorderRadius.circular(5),
+                                child: Container(
+                                  width: 60,
+                                  height: 60,
+                                  color: Colors.grey.shade800,
+                                  child: const Icon(Icons.library_music, color: Colors.white54),
+                                ),
+                              );
+                            }
+
+
+                            return ListTile(
+                              leading: leadingWidget,
                               title: Text(
                                 playlist["name"].toString(),
                                 style: const TextStyle(color: Colors.white),
@@ -485,7 +532,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                                 overflow: TextOverflow.ellipsis,
                               ),
                               subtitle: Text(
-                                "${int.parse(playlist["song_count"].toString())} bài hát",
+                                "${int.parse(songCount.toString())} bài hát",
                                 style: const TextStyle(color: Colors.grey),
                               ),
                               trailing: Checkbox(
@@ -497,7 +544,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                                   setState(() {
                                     selectedPlaylists[index] = value!;
                                     print(selectedPlaylists);
-                                    print(playlist["id"]);
+                                    print(playlist["playlist_id"]);
                                   });
                                 },
                               ),
@@ -507,44 +554,6 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                       ),
 
                       const SizedBox(height: 10),
-
-                      // 🔹 Nút “Xong” cố định
-                      SafeArea(
-                        child: SizedBox(
-                          width: double.infinity,
-                          child: TextButton(
-                            style: TextButton.styleFrom(
-                              backgroundColor: Colors.blueAccent,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                            ),
-                            child: const Text(
-                              'Xong',
-                              style: TextStyle(
-                                  fontWeight: FontWeight.bold, fontSize: 16),
-                            ),
-                            onPressed: () {
-                              // Xử lý khi nhấn “Xong”
-
-                              // khởi tạo một arr id của playlist đc chọn
-                              final selectedPlaylistIds = [
-                                for (int i = 0; i < playlists.length; i++)
-                                  if (selectedPlaylists[i]) playlists[i]["id"]
-                              ];
-
-                              if(songId != null && songId.isNotEmpty && selectedPlaylistIds.isNotEmpty){
-                                saveSongToPlaylist(context, songId, selectedPlaylistIds);
-                              }
-
-                              print("Playlist được chọn: $selectedPlaylistIds");
-                              Navigator.pop(context);
-                            },
-                          ),
-                        ),
-                      ),
                     ],
                   ),
                 );
@@ -557,27 +566,19 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
   }
 
   // lấy 50 hot online
-  Future<void> fetchTopSongs() async {
-    const String url =
-        "http://10.0.2.2:8081/music_API/online_music/song/get_top_songs.php";
+  List<Map<String, dynamic>> starterSongs = [];
+  Future<void> fetchStarterSongs() async {
+    final url = Uri.parse(
+        "http://10.0.2.2:8081/music_API/online_music/recommendation/get_starter_songs.php");
+    final res = await http.get(url);
 
-    try {
-      final res = await http.get(Uri.parse(url));
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body);
-        if (data["status"] == "success") {
-          setState(() {
-            topSongs = List<Map<String, dynamic>>.from(data["songs"]);
-            loading = false;
-          });
-        }
-      } else {
-        debugPrint("❌ HTTP Error: ${res.statusCode}");
-        setState(() => loading = false);
+    if (res.statusCode == 200) {
+      final data = jsonDecode(res.body);
+      if (data["status"] == "success") {
+        setState(() {
+          starterSongs = List<Map<String, dynamic>>.from(data["songs"]);
+        });
       }
-    } catch (e) {
-      debugPrint("❌ Error loading songs: $e");
-      setState(() => loading = false);
     }
   }
 
@@ -650,27 +651,6 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
     }
   }
 
-  // tăng số lượt nghe bài hát khi nhấn nghe
-  Future<void> increasePlayCount(String songId) async {
-    final url = Uri.parse("http://10.0.2.2:8081/music_API/online_music/song/update_play_count.php");
-
-    try {
-      final res = await http.post(
-        url,
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({"song_id": songId}),
-      );
-
-      final data = jsonDecode(res.body);
-      if (data["status"] == "success") {
-        print("🎧 Play count updated: ${data["play_count"]}");
-      } else {
-        print("⚠️ Lỗi cập nhật lượt nghe: ${data["message"]}");
-      }
-    } catch (e) {
-      print("Lỗi khi gọi API: $e");
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -681,7 +661,6 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
         return false; // chặn pop mặc định (vì ta đã pop thủ công)
       },
         child: Scaffold(
-            backgroundColor: const Color(0xFF0F0F1C),
             appBar: AppBar(
               leading: IconButton(
                   onPressed: (){
@@ -689,6 +668,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                   },
                   icon: Icon(Icons.arrow_back_ios_rounded, size: 20,)
               ),
+              automaticallyImplyLeading: false,
               backgroundColor: Colors.transparent,
               elevation: 0,
               iconTheme: const IconThemeData(color: Colors.white),
@@ -780,6 +760,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                     child: bannerContent,
                   ),
                 ),
+
                 const SizedBox(height: 16),
 
                 Row(
@@ -1106,7 +1087,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                                 leading: const Icon(Icons.add_circle_outline),
                                 title: const Text('Thêm vào danh sách phát'),
                                 onTap: () async {
-                                  await loadPlaylists();
+                                  await getUserPlaylists();
                                   setState(() {});
                                   selectedPlaylists = [];
                                   addSongToPlaylist(songId);
@@ -1146,7 +1127,6 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
               final audioProvider = Provider.of<AudioPlayerProvider>(context, listen: false);
               List<Map<String, dynamic>> songsList = playlistOnlineSongs;
               await audioProvider.setPlaylist(songsList, startIndex: index, statusIndex: 1);
-              await increasePlayCount(audioProvider.currentSongId.toString());
               audioProvider.setCurrentSong(index);
               audioProvider.setPlaying(true);
               audioProvider.playlistId = widget.playlistId;
@@ -1206,7 +1186,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
     return [];
   }
 
-  // tìm bài hát để thêm vào playlist
+  // tìm bài hát để thêm vào playlist (finished)
   void _searchSongs(BuildContext context) {
     final user = Provider.of<UserProvider>(context, listen: false).user;
     TextEditingController searchController = TextEditingController();
@@ -1411,20 +1391,20 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
     );
   }
 
-  // danh sách nhạc gợi ý lấy từ internet
+  // danh sách nhạc gợi ý lấy từ internet (finished)
   Widget _buildRecommendSongList(BuildContext context){
     final user = Provider.of<UserProvider>(context, listen: false).user;
-    return isLoading
-        ? const Center(child: CircularProgressIndicator())
+    return starterSongs.isEmpty
+        ? const Center(child: Text("Không có dữ liệu"))
         : ListView.builder(
       shrinkWrap: true, // Cho phép co theo nội dung
       physics: const NeverScrollableScrollPhysics(), // Không cuộn riêng
-      itemCount: topSongs.length,
+      itemCount: starterSongs.length,
       itemBuilder: (context, index) {
-        final song = topSongs[index];
+        final song = starterSongs[index];
         final song_id = song["song_id"] ?? "";
         final title = song["title"] ?? "Unknown Title";
-        final artist = song["artist"] ?? "Unknown Artist";
+        final artist = song["artist_name"] ?? "Unknown Artist";
         final coverUrl = song["cover_url"] ?? "";
 
         return ListTile(
@@ -1459,7 +1439,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
             icon: Icon(Icons.add_circle_outline),
             color: Colors.white70,
             onPressed: () async {
-              await addToPlaylist(song_id, user!.id, widget.playlistName.toString());
+              await addToPlaylist(song_id.toString(), user!.id.toString(), widget.playlistId.toString());
               showSuccessToast("Đã thêm vào danh sách phát");
               await getPlaylistSongs(user.id, widget.playlistId);
               setState(() {});
@@ -1468,7 +1448,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
           onTap: () async {
             final audioProvider = Provider.of<AudioPlayerProvider>(context, listen: false);
 
-            List<Map<String, dynamic>> songsList = topSongs;
+            List<Map<String, dynamic>> songsList = starterSongs;
 
             await audioProvider.setPlaylist(songsList, startIndex: index);
 
@@ -1518,11 +1498,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
               builder: (context, scrollController) {
                 return Container(
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF37353E), Color(0xFF44444E)],
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                    ),
+                    color: Color(0xFF1E201E),
                     borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
                   ),
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -1593,7 +1569,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
 
                             ),
                             const Text(
-                              "Chỉnh sửa danh sách phát",
+                              "Chỉnh sửa playlist",
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
@@ -1785,7 +1761,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      "Tên danh sách phát",
+                      "Tên playlist",
                       style: TextStyle(color: Colors.white70, fontSize: 13),
                     ),
                     const SizedBox(height: 6),
@@ -1799,7 +1775,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                       maxLines: 1,
                       decoration: InputDecoration(
                         filled: true,
-                        fillColor: const Color(0xFF1E1E2C),
+                        fillColor: Colors.black38,
                         contentPadding:
                         const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                         border: OutlineInputBorder(
@@ -1814,10 +1790,12 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                         final newName = nameController.text.trim();
                         if (newName.isNotEmpty && newName != playlistName) {
                           await updatePlaylistName(user!.id.toString() ,playlistId, newName); // 👈 bạn định nghĩa API này
-                          showSuccessToast("Đã cập nhật tên danh sách phát");
+                          showSuccessToast("Đã cập nhật tên playlist");
                           setState(() {
                             audioProvider.playlistName = newName;
                           });
+                          Navigator.pop(context);
+                        }else{
                           Navigator.pop(context);
                         }
                       },
@@ -1865,11 +1843,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
               builder: (context, scrollController) {
                 return Container(
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF37353E), Color(0xFF44444E)],
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                    ),
+                    color: Color(0xFF1E201E),
                     borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
                   ),
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -1932,7 +1906,6 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
       },
     );
   }
-
 
 }
 class MinePartCard extends StatelessWidget {

@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:music_app/artist/artist_detail_screen.dart';
+import 'package:music_app/genre/genre_detail_screen.dart';
 import 'package:page_transition/page_transition.dart';
 import 'package:provider/provider.dart';
 import '../provider/audio_player_provider.dart';
@@ -33,6 +34,8 @@ class DiscoverScreenState extends State<DiscoverScreen> {
     fetchRecommendedSongs();
     fetchRecentAlbums();
     fetchTopArtists();
+    fetchTopArtistsWithBestPLayCountSongs();
+    fetchRecentSongs();
   }
 
   // lấy những albums có bài hát nghe gần đây
@@ -88,7 +91,7 @@ class DiscoverScreenState extends State<DiscoverScreen> {
   }
 
   List<Map<String, dynamic>> recommendedSongs = [];
-  List<Map<String, dynamic>> starterSongs = [];
+
 
   Future<void> fetchRecommendedSongs() async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
@@ -114,6 +117,7 @@ class DiscoverScreenState extends State<DiscoverScreen> {
   }
 
   /// API fallback: Gợi ý cho người mới
+  List<Map<String, dynamic>> starterSongs = [];
   Future<void> fetchStarterSongs() async {
     final url = Uri.parse(
         "http://10.0.2.2:8081/music_API/online_music/recommendation/get_starter_songs.php");
@@ -126,28 +130,6 @@ class DiscoverScreenState extends State<DiscoverScreen> {
           starterSongs = List<Map<String, dynamic>>.from(data["songs"]);
         });
       }
-    }
-  }
-
-  // đếm số lượng nhạc được nghe
-  Future<void> increasePlayCount(String songId) async {
-    final url = Uri.parse("http://10.0.2.2:8081/music_API/online_music/song/update_play_count.php");
-
-    try {
-      final res = await http.post(
-        url,
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({"song_id": songId}),
-      );
-
-      final data = jsonDecode(res.body);
-      if (data["status"] == "success") {
-        print("🎧 Play count updated: ${data["play_count"]}");
-      } else {
-        print("⚠️ Lỗi cập nhật lượt nghe: ${data["message"]}");
-      }
-    } catch (e) {
-      print("Lỗi khi gọi API: $e");
     }
   }
 
@@ -175,6 +157,56 @@ class DiscoverScreenState extends State<DiscoverScreen> {
       debugPrint("Lỗi API lấy top nghệ sĩ: ${res.statusCode}");
     }
   }
+
+  // lấy những nghệ sĩ có bài hát được nghe nhiều nhất
+  List<Map<String,dynamic>> bestPLayCountArtists = [];
+  Future<void> fetchTopArtistsWithBestPLayCountSongs() async {
+    try {
+      final url = Uri.parse('http://10.0.2.2:8081/music_API/online_music/artist/get_top_artist_with_max_play_count_songs.php');
+      final res = await http.get(url);
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data['status'] == 'success') {
+          setState(() {
+            bestPLayCountArtists = List<Map<String, dynamic>>.from(data['artists']);
+          });
+        } else {
+          print('API lỗi');
+        }
+      } else {
+        setState(() {
+          print('HTTP ${res.statusCode}');
+        });
+      }
+    } catch (e) {
+      print(e);
+    }
+  }
+
+  // lấy 20 bài hát hay nghe gần đây
+  List<Map<String, dynamic>> recentSongs = [];
+  Future<void> fetchRecentSongs() async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final userId = userProvider.user?.id;
+
+    final url = Uri.parse(
+        "http://10.0.2.2:8081/music_API/online_music/history/get_recent_songs.php?user_id=$userId");
+
+    final response = await http.get(url);
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+
+      if (data["status"] == "success") {
+        setState(() {
+          recentSongs = List<Map<String, dynamic>>.from(data["songs"]);
+        });
+      }
+    }
+  }
+
+
+
 
 
   @override
@@ -473,8 +505,6 @@ class DiscoverScreenState extends State<DiscoverScreen> {
 
                                   await audioProvider.setPlaylist(starterSongs, startIndex: globalIndex,);
 
-                                  await increasePlayCount(audioProvider.currentSongId.toString(),);
-
                                   GestureDetector(
                                     onTap: () {
                                       Navigator.push(
@@ -579,8 +609,6 @@ class DiscoverScreenState extends State<DiscoverScreen> {
 
                                   await audioProvider.setPlaylist(recommendedSongs, startIndex: globalIndex,);
 
-                                  await increasePlayCount(audioProvider.currentSongId.toString());
-
                                   GestureDetector(
                                     onTap: () {
                                       Navigator.push(
@@ -613,9 +641,239 @@ class DiscoverScreenState extends State<DiscoverScreen> {
               ),
             ],
 
-            // Gợi ý bài hát
+
+
+            if(topArtists.isNotEmpty && topArtists.length >= 4)...[
+              const Text(
+                'Những nghệ sĩ bạn hay nghe nhất',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 14),
+              SizedBox(
+                height: 140,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: topArtists.length,
+                  itemBuilder: (context, index) {
+                    final artist = topArtists[index];
+                    return GestureDetector(
+                      child: Padding(
+                        padding: const EdgeInsets.only(right: 20),
+                        child: Column(
+                          children: [
+                            CircleAvatar(
+                              radius: 40,
+                              backgroundImage: NetworkImage(artist['avatar_url']),
+                            ),
+                            const SizedBox(height: 6),
+                            SizedBox(
+                              width: 80,
+                              child: Text(
+                                artist['artist_name'],
+                                style: const TextStyle(color: Colors.white),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.center,
+                              ),
+                            )
+                          ],
+                        ),
+                      ),
+                      onTap: (){
+                        Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context)=>ArtistDetailScreen(artistId: artist['artist_id'].toString()),
+                              settings: const RouteSettings(name: "artist_detail"),
+                            )
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ]
+            else if(bestPLayCountArtists.isNotEmpty)...[
+              const Text(
+                'Có thể bạn cũng thích',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 14),
+              SizedBox(
+                height: 140,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: bestPLayCountArtists.length,
+                  itemBuilder: (context, index) {
+                    final artist = bestPLayCountArtists[index];
+                    return GestureDetector(
+                      child: Padding(
+                        padding: const EdgeInsets.only(right: 20),
+                        child: Column(
+                          children: [
+                            CircleAvatar(
+                              radius: 40,
+                              backgroundImage: NetworkImage(artist['avatar_url']),
+                            ),
+                            const SizedBox(height: 6),
+                            SizedBox(
+                              width: 80,
+                              child: Text(
+                                artist['artist_name'],
+                                style: const TextStyle(color: Colors.white),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.center,
+                              ),
+                            )
+                          ],
+                        ),
+                      ),
+                      onTap: (){
+                        Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context)=>ArtistDetailScreen(artistId: artist['artist_id'].toString()),
+                              settings: const RouteSettings(name: "artist_detail"),
+                            )
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ]
+            else...[
+              const Center(
+                child: Text(
+                  "Không có dữ liệu",
+                  style: TextStyle(color: Colors.white54),
+                ),
+              ),
+            ],
+
+
+
+            if(recentSongs.isNotEmpty && recentSongs.length >= 3)...[
+              const Text(
+                'Những bài hát hay nghe gần đây',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 14),
+              SizedBox(
+                height: 230, // đủ chứa 3 bài
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: (recentSongs.length / 3).ceil(),
+                  padding: const EdgeInsets.symmetric(horizontal: 2),
+                  itemBuilder: (context, columnIndex) {
+                    final start = columnIndex * 3;
+                    final end = (start + 3 < recentSongs.length)
+                        ? start + 3
+                        : recentSongs.length;
+                    final columnSongs = recentSongs.sublist(start, end);
+
+                    return Container(
+                      margin: const EdgeInsets.only(right: 20),
+                      width: 330,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: List.generate(columnSongs.length, (i) {
+                          final song = columnSongs[i];
+                          final globalIndex = start + i;
+
+                          return Padding(
+                            padding: EdgeInsets.zero,
+                            child: ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              leading: ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Image.network(
+                                  song["cover_url"] ?? "",
+                                  width: 60,
+                                  height: 60,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => Container(
+                                    width: 60,
+                                    height: 60,
+                                    color: Colors.grey.shade800,
+                                    child: const Icon(Icons.music_note,
+                                        color: Colors.white54),
+                                  ),
+                                ),
+                              ),
+                              title: Text(
+                                song["title"] ?? "Không rõ tên bài hát",
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 15,
+                                ),
+                              ),
+                              subtitle: Text(
+                                song["artist_name"] ?? "Không rõ nghệ sĩ",
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.white60,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              trailing: IconButton(icon: Icon(Icons.more_horiz,),
+                                onPressed: (){
+
+                                },
+                              ),
+                              onTap: () async {
+                                final audioProvider = Provider.of<AudioPlayerProvider>(context, listen: false);
+
+                                await audioProvider.setPlaylist(recentSongs, startIndex: globalIndex,);
+
+                                GestureDetector(
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      PageTransition(
+                                        type: PageTransitionType.bottomToTop,
+                                        child: const JustAudioDemo(),
+                                      ),
+                                    );
+                                    print("currentSongPath: ${audioProvider.currentSongPath}");
+                                  },
+                                  child: MiniPlayer(),
+                                );
+                              },
+                            ),
+                          );
+                        }),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ]
+            else...[
+              SizedBox.shrink(),
+            ],
+
+
+            // thể loại
             const Text(
-              'Những nghệ sĩ bạn hay nghe nhất',
+              'Thể loại',
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 20,
@@ -624,42 +882,92 @@ class DiscoverScreenState extends State<DiscoverScreen> {
             ),
             const SizedBox(height: 14),
             SizedBox(
-              height: 140,
+              height: 120,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
-                itemCount: topArtists.length,
+                itemCount: 4,
                 itemBuilder: (context, index) {
-                  final artist = topArtists[index];
+
+                  final genres = ["Nhạc Việt", "Nhạc Nhật", "Nhạc Âu", "Nhạc Hàn"];
+                  final Map<int, String> gs = {
+                    25: "Việt Nam",
+                    15: "Nhạc Nhật",
+                    1:  "Nhạc Âu",
+                    14: "Nhạc Hàn",
+                  };
+                  final keys = gs.keys.toList();
+                  final values = gs.values.toList();
+
+                  final colors = [
+                    [Color(0xFFFF6B6B), Color(0xFFEE5A6F)], // Red gradient
+                    [Color(0xFFFFB347), Color(0xFFFF8C42)], // Orange gradient
+                    [Color(0xFF4FC3F7), Color(0xFF29B6F6)], // Blue gradient
+                    [Color(0xFFBA68C8), Color(0xFFAB47BC)], // Purple gradient
+                  ];
+
                   return GestureDetector(
                     child: Padding(
                       padding: const EdgeInsets.only(right: 20),
                       child: Column(
                         children: [
-                          CircleAvatar(
-                            radius: 40,
-                            backgroundImage: NetworkImage(artist['avatar_url']),
-                          ),
-                          const SizedBox(height: 6),
-                          SizedBox(
-                            width: 80,
-                            child: Text(
-                                artist['artist_name'],
-                              style: const TextStyle(color: Colors.white),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              textAlign: TextAlign.center,
+                          Container(
+                            width: 170,
+                            height: 100,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: colors[index],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: colors[index][0].withOpacity(0.3),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                              borderRadius: BorderRadius.circular(10),
                             ),
+                            child: Stack(
+                              children: [
+                              // Decorative circle
+                              Positioned(
+                              right: -20,
+                                top: -4,
+                                child: Container(
+                                  width: 80,
+                                  height: 80,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.1),
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              ),
+                              // Content
+                              Center(
+                                child: Text(
+                                  values[index],
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ),
+                            ],
                           )
+                          ),
                         ],
                       ),
                     ),
-                    onTap: (){
+                    onTap: () {
                       Navigator.push(
                           context,
                           MaterialPageRoute(
-                              builder: (context)=>ArtistDetailScreen(artistId: artist['artist_id'].toString()),
-                              settings: const RouteSettings(name: "artist_detail"),
-                          )
+                            builder: (context)=>GenreDetailScreen(genreId: keys[index].toString()),
+                            settings: const RouteSettings(name: "genre_detail"),
+                          ),
                       );
                     },
                   );
@@ -667,32 +975,6 @@ class DiscoverScreenState extends State<DiscoverScreen> {
               ),
             ),
 
-            Column(
-              children: List.generate(
-                3,
-                    (index) => ListTile(
-                      contentPadding: EdgeInsets.zero,
-                  leading: ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.asset(
-                      'assets/images/album${index + 1}.jpg',
-                      width: 50,
-                      height: 50,
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                  title: const Text(
-                    'Tên album',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                  subtitle: const Text(
-                    'Tên nghệ sĩ',
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                  trailing: const Icon(Icons.play_arrow, color: Colors.white),
-                ),
-              ),
-            ),
 
             const SizedBox(height: 24),
 

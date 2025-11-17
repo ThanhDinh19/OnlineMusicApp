@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:music_app/library_screens/playlist.dart';
 import 'package:music_app/provider/audio_player_provider.dart';
+import 'package:music_app/provider/favorite_song_provider.dart';
 import 'package:music_app/provider/user_provider.dart';
 import 'package:page_transition/page_transition.dart';
 import 'package:provider/provider.dart';
@@ -23,7 +24,7 @@ class LibraryScreen extends StatefulWidget {
 class _LibraryScreenState extends State<LibraryScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  List<Map<String, dynamic>> favorite_songs = [];
+  //List<Map<String, dynamic>> favorite_songs = [];
   bool isLoading = true;
 
   @override
@@ -31,65 +32,27 @@ class _LibraryScreenState extends State<LibraryScreen>
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
     final user = Provider.of<UserProvider>(context, listen: false).user;
-    Future.microtask(() {
-      Provider.of<FavoriteAlbumProvider>(context, listen: false)
-          .loadAlbumFavorites(user!.id.toString());
-    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final uid = user!.id.toString();
 
-    fetchFavoriteSongs();
+      Provider.of<FavoriteAlbumProvider>(context, listen: false)
+          .loadAlbumFavorites(uid);
+
+      Provider.of<FavoriteSongProvider>(context, listen: false)
+          .loadSongFavorites(uid);
+    });
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     final user = Provider.of<UserProvider>(context, listen: false).user;
+    final uid = user!.id.toString();
     Provider.of<FavoriteAlbumProvider>(context, listen: false)
-        .loadAlbumFavorites(user!.id.toString());
+        .loadAlbumFavorites(uid);
+    Provider.of<FavoriteSongProvider>(context, listen: false)
+        .loadSongFavorites(uid);
   }
-
-  Future<void> fetchFavoriteSongs() async {
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
-    final url = Uri.parse(
-        "http://10.0.2.2:8081/music_API/online_music/song/get_favorite_songs.php?user_id=${userProvider.user!.id.toString()}");
-    try {
-      final response = await http.get(url);
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data["status"] == "success") {
-          setState(() {
-            favorite_songs = List<Map<String, dynamic>>.from(data["favorites"]);
-            isLoading = false;
-          });
-        }
-      }
-    } catch (e) {
-      debugPrint("Error loading favorites: $e");
-      setState(() => isLoading = false);
-    }
-  }
-
-  // đếm số lượng nhạc được nghe
-  Future<void> increasePlayCount(String songId) async {
-    final url = Uri.parse("http://10.0.2.2:8081/music_API/online_music/song/update_play_count.php");
-
-    try {
-      final res = await http.post(
-        url,
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({"song_id": songId}),
-      );
-
-      final data = jsonDecode(res.body);
-      if (data["status"] == "success") {
-        print("🎧 Play count updated: ${data["play_count"]}");
-      } else {
-        print("⚠️ Lỗi cập nhật lượt nghe: ${data["message"]}");
-      }
-    } catch (e) {
-      print("Lỗi khi gọi API: $e");
-    }
-  }
-
 
   @override
   void dispose() {
@@ -212,10 +175,10 @@ class _LibraryScreenState extends State<LibraryScreen>
                     albumName: item['name'],
                     albumCover: item['cover_url'],
                   ),
+                  settings: const RouteSettings(name: "albumScreen"),
                 ),
               );
             },
-
           ),
         );
       },
@@ -224,7 +187,9 @@ class _LibraryScreenState extends State<LibraryScreen>
 
   // Tab 4: Yêu thích
   Widget _buildFavoriteTab() {
-    return favorite_songs.isEmpty ? Center(
+    final favoriteProvider = Provider.of<FavoriteSongProvider>(context);
+    final favoriteSongs = favoriteProvider.songs;
+    return favoriteSongs.isEmpty ? Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -251,9 +216,9 @@ class _LibraryScreenState extends State<LibraryScreen>
     ) :
     ListView.builder(
       padding: const EdgeInsets.all(5),
-      itemCount: favorite_songs.length,
+      itemCount: favoriteSongs.length,
       itemBuilder: (context, index) {
-        final song = favorite_songs[index];
+        final song = favoriteSongs[index];
         final songId = song["song_id"].toString() ?? "";
         final title = song["title"] ?? "Unknown Title";
         final artist = song["artist_name"] ?? "Unknown Artist";
@@ -288,12 +253,10 @@ class _LibraryScreenState extends State<LibraryScreen>
                   context, listen: false);
 
               // Gọi API để lấy toàn bộ danh sách
-              List<Map<String, dynamic>> songsList = favorite_songs;
+              List<Map<String, dynamic>> songsList = favoriteSongs;
 
               // Set playlist & bài hiện tại
               await audioProvider.setPlaylist(songsList, startIndex: index,);
-
-              await increasePlayCount(audioProvider.currentSongId.toString());
 
               GestureDetector(
                 onTap: () {

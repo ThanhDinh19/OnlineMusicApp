@@ -17,6 +17,8 @@ class HideAppBarObserver extends NavigatorObserver {
       "search",
       "voice",
       "albumScreen",
+      "genre_detail",
+      "playlistDetail",
     };
 
     if (hideScreens.contains(name)) {

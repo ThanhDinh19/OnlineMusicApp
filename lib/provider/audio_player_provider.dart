@@ -122,10 +122,34 @@ class AudioPlayerProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+
+  // đếm số bài để phát quảng cáo, cứ 2 bài là phát quảng cáo
   Future<void> _increaseSongCount() async {
     song_count++;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('song_count_$_userId', song_count);
+  }
+
+  // đếm số lượng nghe của mỗi bài
+  Future<void> increasePlayCount(String songId) async {
+    final url = Uri.parse("http://10.0.2.2:8081/music_API/online_music/song/update_play_count.php");
+
+    try {
+      final res = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"song_id": songId}),
+      );
+
+      final data = jsonDecode(res.body);
+      if (data["status"] == "success") {
+        print("🎧 Play count updated: ${data["play_count"]}");
+      } else {
+        print("Lỗi cập nhật lượt nghe: ${data["message"]}");
+      }
+    } catch (e) {
+      print("Lỗi khi gọi API: $e");
+    }
   }
 
   Future<void> saveListeningHistory() async {
@@ -231,6 +255,8 @@ class AudioPlayerProvider extends ChangeNotifier {
 
     await player.setAudioSource(AudioSource.uri(Uri.parse(currentSongPath!)));
 
+    await increasePlayCount(currentSongId.toString());
+
     player.play();
 
     await saveListeningHistory();
@@ -270,7 +296,7 @@ class AudioPlayerProvider extends ChangeNotifier {
       debugPrint("currentSongPath bị null hoặc rỗng: $song");
       return;
     }
-
+    await increasePlayCount(currentSongId.toString());
     await player.setFilePath(currentSongPath!);
     await player.play();
 
@@ -300,12 +326,12 @@ class AudioPlayerProvider extends ChangeNotifier {
       }
     }
 
-    // ✅ Tăng số bài và kiểm tra quảng cáo
+    // Tăng số bài và kiểm tra quảng cáo
     await _increaseSongCount();
     await checkAndUpdatePremium();
 
     if (!isPremium && song_count % 2 == 0) {
-      debugPrint("📢 Phát quảng cáo sau bài thứ $song_count");
+      debugPrint("Phát quảng cáo sau bài thứ $song_count");
       await playAd();
     }
   }
