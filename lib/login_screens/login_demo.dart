@@ -188,7 +188,7 @@ class LoginScreenDemoState extends State<LoginScreenDemo> {
         children: [
 
           Container(
-            height: 300,
+            height: 100,
           ),
           Icon(
             Icons.music_note,

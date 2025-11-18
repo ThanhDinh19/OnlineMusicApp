@@ -28,7 +28,7 @@ class TopChartScreenState extends State<TopChartScreen> {
   bool loading = true;
   final player = AudioPlayer();
   int? currentIndex; // để biết bài nào đang phát
-
+  bool isDownloading = false;
   final String dateNow = DateFormat("dd 'tháng' MM, yyyy").format(
       DateTime.now());
 
@@ -37,6 +37,7 @@ class TopChartScreenState extends State<TopChartScreen> {
   void initState() {
     super.initState();
     fetchTopSongs();
+    getUserPlaylists();
   }
 
   Future<dynamic> showMessage(String _msg) async {
@@ -74,20 +75,6 @@ class TopChartScreenState extends State<TopChartScreen> {
     Future.delayed(Duration(seconds: 1), () {
       Fluttertoast.cancel(); // ẩn thủ công sau 1 giây
     });
-  }
-
-  Future<String> downloadSong(String fileUrl, String fileName) async {
-    final dir = await getApplicationDocumentsDirectory(); // thư mục local app
-    final filePath = '${dir.path}/$fileName.mp3';
-
-    try {
-      await Dio().download(fileUrl, filePath);
-      print("Tải thành công: $filePath");
-      return filePath;
-    } catch (e) {
-      print("Lỗi tải nhạc: $e");
-      return "";
-    }
   }
 
   Future<void> saveDownloadedSongToDB(String userId, String songId, String title, String artist, String coverUrl, int duration, String audioUrl,) async {
@@ -129,23 +116,6 @@ class TopChartScreenState extends State<TopChartScreen> {
     }
   }
 
-  // Future<String?> downloadSongFile(String songUrl, String fileName) async {
-  //   try {
-  //     final dir = await getApplicationDocumentsDirectory();
-  //     final audioDir = Directory('${dir.path}/audio');
-  //     if (!audioDir.existsSync()) audioDir.createSync(recursive: true);
-  //
-  //     final filePath = '${audioDir.path}/$fileName.mp3';
-  //     await Dio().download(songUrl, filePath);
-  //
-  //     print("Đã tải: $filePath");
-  //     return filePath; // trả về local path để lưu DB
-  //   } catch (e) {
-  //     print("Lỗi tải file: $e");
-  //     return null;
-  //   }
-  // }
-
   // lấy toàn bộ nhạc
   Future<void> fetchTopSongs() async {
     const String url =
@@ -170,6 +140,413 @@ class TopChartScreenState extends State<TopChartScreen> {
       setState(() => loading = false);
     }
   }
+
+  // thêm vào danh sách phát
+  List<Map<String, dynamic>> onlinePlaylists = [];
+  Future<void> getUserPlaylists() async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false).user;
+    final uId = userProvider!.id.toString();
+    final url = Uri.parse("http://10.0.2.2:8081/music_API/online_music/playlist/get_user_playlists.php?user_id=$uId");
+    final response = await http.get(url);
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      if (data["status"] == "success") {
+        setState(() {
+          onlinePlaylists = List<Map<String, dynamic>>.from(data["playlists"]);
+        });
+      }
+    }
+  }
+
+  List<bool> selectedPlaylists = [];
+  void addSongToPlaylist(String song_id) {
+    String songId = song_id;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            if (selectedPlaylists.length != onlinePlaylists.length) {
+              selectedPlaylists = List.generate(onlinePlaylists.length, (_) => false);
+            }
+
+            return DraggableScrollableSheet(
+              initialChildSize: 0.95,
+              minChildSize: 0.3,
+              maxChildSize: 0.95,
+              expand: false,
+              builder: (context, scrollController) {
+                return Container(
+                  decoration: const BoxDecoration(
+                    color:  Color(0xFF1E201E),
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+                  child: Column(
+                    children: [
+                      // Header
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.black38,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            TextButton(
+                              onPressed: () {
+                                Navigator.pop(context); // đóng bottom sheet
+                                Navigator.pop(context); // đóng luôn trang hiện tại
+                              },
+                              child: const Text('Hủy',
+                                  style: TextStyle(color: Colors.white)),
+                            ),
+                            const Text(
+                              'Thêm vào playlist',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                // Xử lý khi nhấn “Xong”
+
+                                // khởi tạo một arr id của playlist đc chọn
+                                List<int> selectedPlaylistIds = [
+                                  for (int i = 0; i < onlinePlaylists.length; i++)
+                                    if (selectedPlaylists[i]) onlinePlaylists[i]["playlist_id"]
+                                ];
+
+                                if(songId != null && songId.isNotEmpty && selectedPlaylistIds.isNotEmpty){
+                                  saveSongToPlaylists(songId, selectedPlaylistIds);
+                                  showToast("Đã thêm bài hát vào playlist");
+                                }
+
+                                print("Playlist được chọn: $selectedPlaylistIds");
+
+                                Navigator.pop(context);
+                              },
+                              child: const Text('Xong',
+                                  style: TextStyle(color: Colors.lightGreen)),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 15),
+
+                      // Nút tạo playlist mới
+                      ElevatedButton.icon(
+                        onPressed: () async {
+                          final created = await createNewPlaylist(context);
+
+                          if (created) {
+                            await getUserPlaylists();
+
+                            // cập nhật lại checkbox cho đúng số lượng playlist
+                            setState(() {
+                              selectedPlaylists = List.generate(onlinePlaylists.length, (_) => false);
+                            });
+                          }
+                        },
+                        icon: const Icon(Icons.add, color: Colors.white),
+                        label: const Text(
+                          'Tạo playlist mới',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.black38,
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+
+
+                      const SizedBox(height: 20),
+
+                      // Danh sách playlist có thể cuộn
+                      Expanded(
+                        child: ListView.builder(
+                          controller: scrollController,
+                          itemCount: onlinePlaylists.length,
+                          itemBuilder: (context, index) {
+                            final playlist = onlinePlaylists[index];
+                            final songs = playlist["songs"] ?? [];
+                            final songCount = playlist["song_count"];
+
+                            Widget leadingWidget;
+                            if (songs.length >= 4) {
+                              leadingWidget = ClipRRect(
+                                borderRadius: BorderRadius.circular(5),
+                                child: Container(
+                                  width: 60,
+                                  height: 60,
+                                  color: Colors.grey.shade800,
+                                  child: GridView.builder(
+                                    padding: EdgeInsets.zero,
+                                    physics: const NeverScrollableScrollPhysics(),
+                                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                      crossAxisCount: 2,
+                                      mainAxisSpacing: 1,
+                                      crossAxisSpacing: 1,
+                                    ),
+                                    itemCount: 4,
+                                    itemBuilder: (context, i) {
+                                      final song = songs[i];
+                                      return Image.network(
+                                        song["cover"] ?? "",
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (context, error, stackTrace) =>
+                                            Container(color: Colors.grey.shade700),
+                                      );
+                                    },
+                                  ),
+                                ),
+                              );
+                            } else if (songs.isNotEmpty) {
+                              leadingWidget = ClipRRect(
+                                borderRadius: BorderRadius.circular(5),
+                                child: Image.network(
+                                  songs[0]["cover"] ?? "",
+                                  width: 60,
+                                  height: 60,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      Container(color: Colors.grey.shade700),
+                                ),
+                              );
+                            } else {
+                              leadingWidget = ClipRRect(
+                                borderRadius: BorderRadius.circular(5),
+                                child: Container(
+                                  width: 60,
+                                  height: 60,
+                                  color: Colors.grey.shade800,
+                                  child: const Icon(Icons.library_music, color: Colors.white54),
+                                ),
+                              );
+                            }
+
+
+                            return ListTile(
+                              leading: leadingWidget,
+                              title: Text(
+                                playlist["name"].toString(),
+                                style: const TextStyle(color: Colors.white),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              subtitle: Text(
+                                "${int.parse(songCount.toString())} bài hát",
+                                style: const TextStyle(color: Colors.grey),
+                              ),
+                              trailing: Checkbox(
+                                value: selectedPlaylists[index],
+                                activeColor: Colors.blueAccent,
+                                checkColor: Colors.white,
+                                shape: const CircleBorder(),
+                                onChanged: (value) {
+                                  setState(() {
+                                    selectedPlaylists[index] = value!;
+                                    print(selectedPlaylists);
+                                    print(playlist["playlist_id"]);
+                                  });
+                                },
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+
+                      const SizedBox(height: 10),
+                    ],
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> saveSongToPlaylists(String songId, List<int> playlistIds) async {
+    final url = Uri.parse(
+      "http://10.0.2.2:8081/music_API/online_music/playlist/add_song_to_playlists.php",
+    );
+
+    final response = await http.post(
+      url,
+      body: {
+        "song_id": songId,
+        "playlist_ids": jsonEncode(playlistIds),
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      print("Kết quả: $data");
+    } else {
+      print("Lỗi HTTP: ${response.statusCode}");
+    }
+  }
+
+  Future<bool> createNewPlaylist(BuildContext context) async {
+    final user = Provider.of<UserProvider>(context, listen: false).user;
+    final controller = TextEditingController();
+
+    return await showDialog<bool>(
+      context: context,
+      barrierDismissible: false, // ko tắt dialog
+      builder: (dialogContext) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E1E1E),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  "Tạo playlist mới",
+                  style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 15),
+
+                TextField(
+                  controller: controller,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: const InputDecoration(
+                    hintText: "Tên playlist",
+                    hintStyle: TextStyle(color: Colors.white54),
+                    enabledBorder: UnderlineInputBorder(
+                      borderSide: BorderSide(color: Colors.white24),
+                    ),
+                    focusedBorder: UnderlineInputBorder(
+                      borderSide: BorderSide(color: Colors.blueAccent),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 25),
+
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextButton(
+                        onPressed: () => Navigator.pop(dialogContext, false),
+                        child: const Text("Hủy", style: TextStyle(color: Colors.white70)),
+                      ),
+                    ),
+                    Expanded(
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blueAccent,
+                        ),
+                        onPressed: () async {
+                          final name = controller.text.trim();
+                          if (name.isEmpty) {
+                            Fluttertoast.showToast(msg: "Vui lòng nhập tên playlist");
+                            return;
+                          }
+
+                          /// 🔹 Loading root navigator (không nằm trong bottomsheet)
+                          showDialog(
+                            context: dialogContext,
+                            useRootNavigator: true,
+                            barrierDismissible: false,
+                            builder: (_) => const Center(
+                              child: CircularProgressIndicator(color: Colors.blueAccent),
+                            ),
+                          );
+
+                          try {
+                            final res = await http.post(
+                              Uri.parse("http://10.0.2.2:8081/music_API/online_music/playlist/create_playlist.php"),
+                              headers: {"Content-Type": "application/json"},
+                              body: jsonEncode({
+                                "user_id": user!.id.toString(),
+                                "name": name,
+                              }),
+                            );
+
+                            Navigator.of(dialogContext, rootNavigator: true).pop();
+
+                            final data = jsonDecode(res.body);
+
+                            if (data["status"] == "success") {
+                              showToast("Đã tạo playlist");
+                              Navigator.pop(dialogContext, true); // ✔ trả về true
+                            } else {
+                              Fluttertoast.showToast(msg: "Lỗi tạo playlist");
+                            }
+                          } catch (e) {
+                            Navigator.of(dialogContext, rootNavigator: true).pop();
+                            showToast("Lỗi kết nối");
+                          }
+                        },
+                        child: const Text("Tạo"),
+                      ),
+                    ),
+                  ],
+                )
+              ],
+            ),
+          ),
+        );
+      },
+    ) ?? false;
+  }
+
+
+  Future handle_new_playlist(BuildContext context, String namePlaylistController) async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final userId = userProvider.user?.id;
+    //Login API URL
+    //use your local IP address instead of localhost or use Web API
+    final response = await http.post(
+      Uri.parse("http://10.0.2.2:8081/music_API/online_music/playlist/create_playlist.php"),
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({
+        "user_id": userId.toString(),
+        "name": namePlaylistController,
+      }),
+    );
+    if (response.statusCode == 200) {
+      //Server response into variable
+      print(response.body);
+      final data = jsonDecode(response.body);
+
+      //Check Saving Status
+      if (data["status"] == "success") {
+        print("Save playlist into database successfully");
+
+      } else {
+        setState(() {
+          //Show Error Message Dialog
+          showToast("Lỗi khi tạo playlist");
+        });
+      }
+    } else {
+      setState(() {
+        //Show Error Message Dialog
+        showToast("Lỗi kết nối mạng");
+      });
+    }
+  }
+
 
   @override
   void dispose() {
@@ -269,7 +646,7 @@ class TopChartScreenState extends State<TopChartScreen> {
       itemCount: topSongs.length,
       itemBuilder: (context, index) {
         final song = topSongs[index];
-        final songId = song["song_id"] ?? "";
+        final songId = song["song_id"].toString() ?? "";
         final title = song["title"] ?? "Unknown Title";
         final artist = song["artist"] ?? "Unknown Artist";
         final audioUrl = song["audio_url"] ?? "";
@@ -373,81 +750,23 @@ class TopChartScreenState extends State<TopChartScreen> {
                               leading: const Icon(Icons.add_circle_outline),
                               title: const Text('Thêm vào danh sách phát'),
                               onTap: () async {
-                                // await loadPlaylists();
-                                // setState(() {});
-                                // selectedPlaylists = [];
-                                // addSongToPlaylist(songId);
+                                await getUserPlaylists();
+                                setState(() {});
+                                selectedPlaylists = [];
+                                addSongToPlaylist(songId);
                               },
                             ),
                             ListTile(
                               leading: Icon(Icons.download),
                               title: Text('Tải xuống'),
-                              onTap: () async {
+                                onTap: () async {
+                                  if (isDownloading) return; // chặn spam
+                                  setState(() => isDownloading = true);
 
-                                HandleFramework hf = HandleFramework();
-                                bool checkPremium = await hf.checkPremiumStatus();
-                                if(checkPremium == true)
-                                {
-                                  final userProvider = Provider.of<UserProvider>(context, listen: false);
-                                  final userId = userProvider.user?.id;
+                                  await downloadSong(songId, title, audioUrl, artist, coverUrl);
 
-                                  final fileName = "${songId}_${title.replaceAll(' ', '_')}";
-
-                                  // Bước 1: Kiểm tra file đã tồn tại chưa
-                                  final existingPath = await checkIfSongExists(fileName);
-
-                                  String? filePath;
-
-                                  if (existingPath != null) {
-                                    // Nếu đã tồn tại – không tải lại
-                                    filePath = existingPath;
-                                    showToast("Bài hát đã được tải trước đó");
-                                  } else {
-                                    // Nếu chưa có – tải mới
-                                    filePath = await downloadSongFile(audioUrl, fileName);
-                                  }
-
-                                  if (filePath != null) {
-                                    // Lưu xuống MySQL (bạn đã làm đúng)
-                                    final body = {
-                                      "user_id": userId.toString(),
-                                      "song_id": songId.toString(),
-                                      "title": title,
-                                      "artist": artist,
-                                      "cover_url": coverUrl,
-                                      "duration": "0",
-                                      "audio_url": filePath,
-                                    };
-
-                                    final response = await http.post(
-                                      Uri.parse("http://10.0.2.2:8081/music_API/online_music/download/save_downloaded_song.php"),
-                                      headers: {"Content-Type": "application/json"},
-                                      body: jsonEncode(body),
-                                    );
-
-                                    final result = jsonDecode(response.body);
-
-                                    if (result["status"] == "success") {
-                                      showToast(existingPath != null ? "Đã có trong thư viện" : "Tải xuống thành công");
-                                    } else {
-                                      Fluttertoast.showToast(
-                                        msg: "Lưu thất bại: ${result["message"]}",
-                                        backgroundColor: Colors.red,
-                                      );
-                                    }
-                                  }
-                                  Navigator.pop(context);
+                                  setState(() => isDownloading = false);
                                 }
-                                else {
-                                  showModalBottomSheet(
-                                    context: context,
-                                    backgroundColor: Colors.transparent,
-                                    isScrollControlled: true,
-                                    builder: (_) => const PremiumBottomSheet(),
-                                  );
-                                }
-                              },
-
                             ),
                             const ListTile(
                               leading: Icon(Icons.access_time),
@@ -542,5 +861,69 @@ class TopChartScreenState extends State<TopChartScreen> {
     }
   }
 
+  Future<void> downloadSong(String songId, String title, String audioUrl, String artist, String coverUrl) async {
+    HandleFramework hf = HandleFramework();
+    bool checkPremium = await hf.checkPremiumStatus();
+    if(checkPremium == true)
+    {
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      final userId = userProvider.user?.id;
+
+      final fileName = "${songId}_${title.replaceAll(' ', '_')}";
+
+      // Bước 1: Kiểm tra file đã tồn tại chưa
+      final existingPath = await checkIfSongExists(fileName);
+
+      String? filePath;
+
+      if (existingPath != null) {
+        // Nếu đã tồn tại – không tải lại
+        filePath = existingPath;
+        showToast("Bài hát đã được tải trước đó");
+      } else {
+        // Nếu chưa có – tải mới
+        filePath = await downloadSongFile(audioUrl, fileName);
+      }
+
+      if (filePath != null) {
+        // Lưu xuống MySQL (bạn đã làm đúng)
+        final body = {
+          "user_id": userId.toString(),
+          "song_id": songId.toString(),
+          "title": title,
+          "artist": artist,
+          "cover_url": coverUrl,
+          "duration": "0",
+          "audio_url": filePath,
+        };
+
+        final response = await http.post(
+          Uri.parse("http://10.0.2.2:8081/music_API/online_music/download/save_downloaded_song.php"),
+          headers: {"Content-Type": "application/json"},
+          body: jsonEncode(body),
+        );
+
+        final result = jsonDecode(response.body);
+
+        if (result["status"] == "success") {
+          showToast(existingPath != null ? "Đã có trong thư viện" : "Tải xuống thành công");
+        } else {
+          Fluttertoast.showToast(
+            msg: "Lưu thất bại: ${result["message"]}",
+            backgroundColor: Colors.red,
+          );
+        }
+      }
+      Navigator.pop(context);
+    }
+    else {
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        isScrollControlled: true,
+        builder: (_) => const PremiumBottomSheet(),
+      );
+    }
+  }
 
 }

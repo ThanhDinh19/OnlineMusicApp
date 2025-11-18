@@ -1,13 +1,17 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:music_app/design/EqualizerAnimation.dart';
 import 'package:page_transition/page_transition.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
+import '../function/handle_framework.dart';
 import '../home_screens/just_audio_demo.dart';
 import '../home_screens/mini_player.dart';
+import '../premium_screen/PremiumBottomSheet.dart';
 import '../provider/audio_player_provider.dart';
 import '../provider/user_provider.dart';
 
@@ -38,6 +42,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
   bool isLoading = true;
   bool loading = true; // loading bài hát gợi ý
   int? currentIndex; // để biết bài nào đang phát
+  bool isDownloading = false;
 
   List<Map<String, dynamic>> songs = [];
 
@@ -62,7 +67,6 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
       throw Exception("Lỗi kết nối server");
     }
   }
-
 
   // load để lấy 4 hình bài đầu làm banner (từ csdl, tạm thời không dùng)
   Future<List<Map<String, dynamic>>> loadSongCover(String playlistId) async {
@@ -651,6 +655,121 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
     }
   }
 
+  // tải xuống
+  Future<String?> checkIfSongExists(String fileName) async {
+    final Directory appDir = await getApplicationDocumentsDirectory();
+    final Directory musicDir = Directory("${appDir.path}/MusicApp/downloads");
+
+    final String filePath = "${musicDir.path}/$fileName.mp3";
+
+    final File file = File(filePath);
+
+    if (await file.exists()) {
+      return filePath; // Trả về đường dẫn nếu file có tồn tại
+    } else {
+      return null; // Chưa tồn tại
+    }
+  }
+
+  Future<String?> downloadSongFile(String url, String fileName) async {
+    try {
+      final Directory appDir = await getApplicationDocumentsDirectory();
+      final Directory musicDir = Directory("${appDir.path}/MusicApp/downloads");
+
+      if (!(await musicDir.exists())) {
+        await musicDir.create(recursive: true);
+      }
+
+      final String filePath = "${musicDir.path}/$fileName.mp3";
+
+      // 🔍 Kiểm tra nếu file đã tồn tại
+      final File existingFile = File(filePath);
+      if (await existingFile.exists()) {
+        print("File already exists: $filePath");
+        return filePath; // Không tải nữa
+      }
+
+      // Tải file từ URL
+      final response = await http.get(Uri.parse(url));
+
+      if (response.statusCode == 200) {
+        final File file = File(filePath);
+        await file.writeAsBytes(response.bodyBytes);
+        return filePath;
+      } else {
+        print("Download failed: ${response.statusCode}");
+        return null;
+      }
+    } catch (e) {
+      print("Error downloading file: $e");
+      return null;
+    }
+  }
+
+  Future<void> downloadSong(String songId, String title, String audioUrl, String artist, String coverUrl) async {
+    HandleFramework hf = HandleFramework();
+    bool checkPremium = await hf.checkPremiumStatus();
+    if(checkPremium == true)
+    {
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      final userId = userProvider.user?.id;
+
+      final fileName = "${songId}_${title.replaceAll(' ', '_')}";
+
+      // Bước 1: Kiểm tra file đã tồn tại chưa
+      final existingPath = await checkIfSongExists(fileName);
+
+      String? filePath;
+
+      if (existingPath != null) {
+        // Nếu đã tồn tại – không tải lại
+        filePath = existingPath;
+        showToast("Bài hát đã được tải trước đó");
+      } else {
+        // Nếu chưa có – tải mới
+        filePath = await downloadSongFile(audioUrl, fileName);
+      }
+
+      if (filePath != null) {
+        // Lưu xuống MySQL (bạn đã làm đúng)
+        final body = {
+          "user_id": userId.toString(),
+          "song_id": songId.toString(),
+          "title": title,
+          "artist": artist,
+          "cover_url": coverUrl,
+          "duration": "0",
+          "audio_url": filePath,
+        };
+
+        final response = await http.post(
+          Uri.parse("http://10.0.2.2:8081/music_API/online_music/download/save_downloaded_song.php"),
+          headers: {"Content-Type": "application/json"},
+          body: jsonEncode(body),
+        );
+
+        final result = jsonDecode(response.body);
+
+        if (result["status"] == "success") {
+          showToast(existingPath != null ? "Đã có trong thư viện" : "Tải xuống thành công");
+        } else {
+          Fluttertoast.showToast(
+            msg: "Lưu thất bại: ${result["message"]}",
+            backgroundColor: Colors.red,
+          );
+        }
+      }
+      Navigator.pop(context);
+    }
+    else {
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        isScrollControlled: true,
+        builder: (_) => const PremiumBottomSheet(),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -968,7 +1087,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
       itemBuilder: (context, index) {
         final song = playlistOnlineSongs[index];
         final songId = song['song_id'].toString();
-        final audioUrl = song['mp3_url'];
+        final audioUrl = song['audio_url'];
         final coverUrl = song['cover_url'] ?? '';
         final songTitle = song['title'] ?? 'Không có tiêu đề';
         final artist = song['artist_name'] ?? 'Không rõ nghệ sĩ';
@@ -1103,9 +1222,17 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                                   Navigator.pop(context);
                                 },
                               ),
-                              const ListTile(
+                               ListTile(
                                 leading: Icon(Icons.download),
                                 title: Text('Tải xuống'),
+                                 onTap: () async {
+                                   if (isDownloading) return; // chặn spam
+                                   setState(() => isDownloading = true);
+
+                                   await downloadSong(songId, songTitle, audioUrl, artist, coverUrl);
+
+                                   setState(() => isDownloading = false);
+                                 }
                               ),
                               const ListTile(
                                 leading: Icon(Icons.access_time),

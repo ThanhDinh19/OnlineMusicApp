@@ -6,6 +6,7 @@ import 'package:music_app/login_screens/login_demo.dart';
 import 'package:music_app/provider/audio_player_provider.dart';
 import 'package:music_app/provider/favorite_album_provider.dart';
 import 'package:music_app/provider/favorite_song_provider.dart';
+import 'package:music_app/provider/load_song_provider.dart';
 import 'package:music_app/provider/models/user_model.dart';
 import 'package:music_app/provider/status_provider.dart';
 import 'package:music_app/provider/user_provider.dart';
@@ -56,6 +57,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(create: (_) => FavoriteAlbumProvider()),
         ChangeNotifierProvider(create: (_) => FavoriteSongProvider()),
+        ChangeNotifierProvider(create: (_) => LoadSongProvider()),
       ],
       child: MyApp(isLoggedIn: isLoggedIn, isSelected: checkArtistSelectStatus),
     ),

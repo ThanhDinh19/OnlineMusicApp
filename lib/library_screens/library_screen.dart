@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:music_app/library_screens/playlist.dart';
 import 'package:music_app/provider/audio_player_provider.dart';
 import 'package:music_app/provider/favorite_song_provider.dart';
+import 'package:music_app/provider/load_song_provider.dart';
 import 'package:music_app/provider/user_provider.dart';
 import 'package:page_transition/page_transition.dart';
 import 'package:provider/provider.dart';
@@ -40,6 +41,9 @@ class _LibraryScreenState extends State<LibraryScreen>
 
       Provider.of<FavoriteSongProvider>(context, listen: false)
           .loadSongFavorites(uid);
+
+      Provider.of<LoadSongProvider>(context, listen: false)
+          .loadDownloadedSongs(uid);
     });
   }
 
@@ -52,6 +56,8 @@ class _LibraryScreenState extends State<LibraryScreen>
         .loadAlbumFavorites(uid);
     Provider.of<FavoriteSongProvider>(context, listen: false)
         .loadSongFavorites(uid);
+    Provider.of<LoadSongProvider>(context, listen: false)
+        .loadDownloadedSongs(uid);
   }
 
   @override
@@ -289,7 +295,7 @@ class DownloadedTab extends StatefulWidget {
 }
 
 class _DownloadedTabState extends State<DownloadedTab> {
-  List<Map<String, dynamic>> downloadedSongs = [];
+  //List<Map<String, dynamic>> downloadedSongs = [];
   final AudioPlayer player = AudioPlayer();
 
   bool isLoading = true;
@@ -297,37 +303,16 @@ class _DownloadedTabState extends State<DownloadedTab> {
   @override
   void initState() {
     super.initState();
-    loadDownloadedSongs();
   }
 
-  Future<List<Map<String, dynamic>>> fetchOfflineSongs(String userId) async {
-    final url = Uri.parse("http://10.0.2.2:8081/music_API/online_music/download/get_downloaded_songs.php?user_id=$userId");
-    final response = await http.get(url);
-
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      if (data["status"] == "success") {
-        return List<Map<String, dynamic>>.from(data["songs"]);
-      }
-    }
-    return [];
-  }
-
-  Future<void> loadDownloadedSongs() async {
-    final songs = await fetchOfflineSongs(widget.userId);
-    setState(() {
-      downloadedSongs = songs;
-      if(downloadedSongs.isNotEmpty){
-        isLoading = false;
-      }
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final userId = userProvider.user?.id;
-    return isLoading
+    final downloadedSongProvider = Provider.of<LoadSongProvider>(context, listen: false);
+    final downloadedSongs = downloadedSongProvider.downloadedSongs;
+    return downloadedSongs.isEmpty
         ? const Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,

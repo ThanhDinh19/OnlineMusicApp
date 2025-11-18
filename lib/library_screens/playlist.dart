@@ -19,8 +19,10 @@ class _PlaylistState extends State<Playlist> {
   void initState() {
     super.initState();
     final user = Provider.of<UserProvider>(context, listen: false).user;
-    if (user != null) getUserPlaylists(user.id.toString());
+    if (user != null) getUserPlaylists();
   }
+
+
   void showToast(String message) {
     Fluttertoast.showToast(
       msg: message,
@@ -34,323 +36,164 @@ class _PlaylistState extends State<Playlist> {
       Fluttertoast.cancel(); // ẩn thủ công sau 1 giây
     });
   }
+  Future handle_new_playlist(BuildContext context, String namePlaylistController) async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final userId = userProvider.user?.id;
+    //Login API URL
+    //use your local IP address instead of localhost or use Web API
+    final response = await http.post(
+      Uri.parse("http://10.0.2.2:8081/music_API/online_music/playlist/create_playlist.php"),
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({
+        "user_id": userId.toString(),
+        "name": namePlaylistController,
+      }),
+    );
+    if (response.statusCode == 200) {
+      //Server response into variable
+      print(response.body);
+      final data = jsonDecode(response.body);
 
-  Future<void> createNewPlaylist(BuildContext context, Function(String) onCreated) async {
-    final user = Provider.of<UserProvider>(context, listen: false).user;
-    final TextEditingController controller = TextEditingController();
-    final FocusNode focusNode = FocusNode();
+      //Check Saving Status
+      if (data["status"] == "success") {
+        print("Save playlist into database successfully");
 
-    // Auto focus vào TextField
-    Future.delayed(const Duration(milliseconds: 100), () {
-      focusNode.requestFocus();
-    });
-
-    showDialog(
+      } else {
+        setState(() {
+          //Show Error Message Dialog
+          showToast("Lỗi khi tạo playlist");
+        });
+      }
+    } else {
+      setState(() {
+        //Show Error Message Dialog
+        showToast("Lỗi kết nối mạng");
+      });
+    }
+  }
+  Future createNewPlaylist(BuildContext context, Function(String) onCreate) async {
+    final TextEditingController namePlaylistController = TextEditingController();
+    showModalBottomSheet(
       context: context,
-      barrierDismissible: true,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (context) {
-        return Dialog(
-          backgroundColor: Colors.transparent,
-          child: Container(
-            constraints: const BoxConstraints(maxWidth: 400),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  const Color(0xFF1E1E1E),
-                  const Color(0xFF2A2A2A),
-                ],
+        return DraggableScrollableSheet(
+          initialChildSize: 0.9,
+          minChildSize: 0.1,
+          maxChildSize: 0.9,
+          expand: false,
+          builder: (context, scrollController) {
+            return Container(
+              padding: EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+              decoration: BoxDecoration(
+                color: Color(0xFF1E201E),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
               ),
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.5),
-                  blurRadius: 20,
-                  offset: const Offset(0, 10),
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Header
-                Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        const Color(0xFF6366F1).withOpacity(0.2),
-                        Colors.transparent,
-                      ],
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
+              child: SingleChildScrollView( // SingleChildScrollView tránh overflow khi bàn phím bật.
+                controller: scrollController,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 4,
+                      margin: EdgeInsets.only(bottom: 20),
+                      decoration: BoxDecoration(
+                        color: Colors.white54,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
                     ),
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(24),
+                    Text(
+                      "Đặt tên cho playlist của bạn",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 22,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
-                          ),
+                    SizedBox(height: 30),
+                    TextField(
+                      controller: namePlaylistController,
+                      style: TextStyle(color: Colors.white, fontSize: 21, fontWeight: FontWeight.bold),
+                      decoration: InputDecoration(
+                        hintText: ".......",
+                        hintStyle: TextStyle(color: Colors.white54),
+                        filled: true,
+                        fillColor: Colors.grey[850],
+                        contentPadding:
+                        EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFF6366F1).withOpacity(0.4),
-                              blurRadius: 12,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.playlist_add,
-                          color: Colors.white,
-                          size: 28,
+                          borderSide: BorderSide.none,
                         ),
                       ),
-                      const SizedBox(width: 16),
-                      const Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              "Tạo Playlist Mới",
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                            SizedBox(height: 4),
-                            Text(
-                              "Đặt tên cho playlist của bạn",
-                              style: TextStyle(
-                                color: Colors.white60,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ],
+                    ),
+                    SizedBox(height: 30),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        TextButton(
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            padding: EdgeInsets.symmetric(
+                                horizontal: 25, vertical: 14),
+                          ),
+                          onPressed: () => Navigator.pop(context),
+                          child: Text(
+                            "Hủy",
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.black38,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            padding: EdgeInsets.symmetric(
+                                horizontal: 25, vertical: 14),
+                          ),
+                          onPressed: () {
+                            final name = namePlaylistController.text.trim();
+                            if (name.isNotEmpty) {
+                              onCreate(name);
+                              handle_new_playlist(context, name).then((_) {
+                                getUserPlaylists();
+                              });
+                              showToast("Đã tạo playlist");
+                              Navigator.pop(context);
+                            }
+                            else{
+                              showToast("Hãy đặt tên cho playlist");
+                            }
+                          },
+                          child: Text(
+                            "Tạo",
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 20),
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 20),
+                  ],
                 ),
-
-                // Content
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-                  child: Column(
-                    children: [
-                      // TextField
-                      Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.05),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: Colors.white.withOpacity(0.1),
-                            width: 1.5,
-                          ),
-                        ),
-                        child: TextField(
-                          controller: controller,
-                          focusNode: focusNode,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                          ),
-                          maxLength: 50,
-                          decoration: InputDecoration(
-                            hintText: "Ví dụ: Nhạc yêu thích của tôi",
-                            hintStyle: TextStyle(
-                              color: Colors.white.withOpacity(0.4),
-                              fontSize: 15,
-                            ),
-                            prefixIcon: Icon(
-                              Icons.music_note_rounded,
-                              color: Colors.white.withOpacity(0.6),
-                            ),
-                            counterText: "",
-                            border: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 18,
-                            ),
-                          ),
-                        ),
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      // Action buttons
-                      Row(
-                        children: [
-                          // Cancel button
-                          Expanded(
-                            child: TextButton(
-                              onPressed: () => Navigator.pop(context),
-                              style: TextButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(vertical: 16),
-                                backgroundColor: Colors.white.withOpacity(0.05),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  side: BorderSide(
-                                    color: Colors.white.withOpacity(0.1),
-                                    width: 1,
-                                  ),
-                                ),
-                              ),
-                              child: const Text(
-                                "Hủy",
-                                style: TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ),
-
-                          const SizedBox(width: 12),
-
-                          // Create button
-                          Expanded(
-                            flex: 2,
-                            child: ElevatedButton(
-                              onPressed: () async {
-                                final name = controller.text.trim();
-                                if (name.isEmpty) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: const Row(
-                                        children: [
-                                          Icon(Icons.warning_amber_rounded, color: Colors.white),
-                                          SizedBox(width: 12),
-                                          Text("Vui lòng nhập tên playlist"),
-                                        ],
-                                      ),
-                                      backgroundColor: const Color(0xFFEF4444),
-                                      behavior: SnackBarBehavior.floating,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                    ),
-                                  );
-                                  return;
-                                }
-
-                                // Show loading
-                                showDialog(
-                                  context: context,
-                                  barrierDismissible: false,
-                                  builder: (context) => Center(
-                                    child: Container(
-                                      padding: const EdgeInsets.all(24),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFF1E1E1E),
-                                        borderRadius: BorderRadius.circular(16),
-                                      ),
-                                      child: const Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          CircularProgressIndicator(
-                                            color: Color(0xFF6366F1),
-                                            strokeWidth: 3,
-                                          ),
-                                          SizedBox(height: 16),
-                                          Text(
-                                            "Đang tạo playlist...",
-                                            style: TextStyle(color: Colors.white70),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                );
-
-                                try {
-                                  final response = await http.post(
-                                    Uri.parse("http://10.0.2.2:8081/music_API/online_music/playlist/create_playlist.php"),
-                                    headers: {"Content-Type": "application/json"},
-                                    body: jsonEncode({
-                                      "user_id": user!.id.toString(),
-                                      "name": name,
-                                    }),
-                                  );
-
-                                  final data = jsonDecode(response.body);
-
-                                  // Close loading dialog
-                                  Navigator.pop(context);
-
-                                  if (data["status"] == "success") {
-                                    // Close create dialog
-                                    Navigator.pop(context);
-
-                                    showToast("Đã tạo playlist");
-
-                                    onCreated(name);
-                                  } else {
-                                    showToast("Lỗi khi tạo playlist");
-                                  }
-                                } catch (e) {
-                                  // Close loading dialog
-                                  Navigator.pop(context);
-
-                                  showToast("Lỗi kết nối mạng");
-                                }
-                              },
-                              style: ElevatedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(vertical: 16),
-                                backgroundColor: const Color(0xFF6366F1),
-                                foregroundColor: Colors.white,
-                                elevation: 0,
-                                shadowColor: const Color(0xFF6366F1).withOpacity(0.5),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              child: const Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.add_circle_outline, size: 20),
-                                  SizedBox(width: 8),
-                                  Text(
-                                    "Tạo Playlist",
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      letterSpacing: 0.5,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         );
       },
-    ).then((_) {
-      controller.dispose();
-      focusNode.dispose();
-    });
+    );
   }
 
-  Future<void> getUserPlaylists(String userId) async {
-    final url = Uri.parse("http://10.0.2.2:8081/music_API/online_music/playlist/get_user_playlists.php?user_id=$userId");
+  Future<void> getUserPlaylists() async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false).user;
+    final uId = userProvider!.id.toString();
+    final url = Uri.parse("http://10.0.2.2:8081/music_API/online_music/playlist/get_user_playlists.php?user_id=$uId");
     final response = await http.get(url);
 
     if (response.statusCode == 200) {
@@ -377,7 +220,7 @@ class _PlaylistState extends State<Playlist> {
             child: GestureDetector(
               onTap: () {
                 createNewPlaylist(context, (namePlaylist) async {
-                  await getUserPlaylists(user!.id.toString());
+                  await getUserPlaylists();
                 });
               },
               child: Row(
@@ -488,7 +331,7 @@ class _PlaylistState extends State<Playlist> {
             );
 
             if (shouldRefresh == true) {
-              await getUserPlaylists(user!.id.toString());
+              await getUserPlaylists();
             }
           },
         );
