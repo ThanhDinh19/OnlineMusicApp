@@ -70,7 +70,7 @@ class _EqualizerAnimationState extends State<EqualizerAnimation>
       width: 2,
       height: height,
       decoration: BoxDecoration(
-        color: Color(0xFF900C3F),
+        color: Color(0xFFFFE700),
         borderRadius: BorderRadius.circular(2),
       ),
     );

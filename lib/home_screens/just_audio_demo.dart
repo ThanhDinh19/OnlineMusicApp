@@ -240,10 +240,9 @@ class _JustAudioDemoState extends State<JustAudioDemo> {
                     setState(() {
                       isFavorite = !isFavorite;
                     });
-
+                    final songData = audioProvider.playlist[audioProvider.currentIndex];
                     final favProvider = Provider.of<FavoriteSongProvider>(context, listen: false);
-                    print("userID: ${userProvider.user!.id.toString()}, songId: ${audioProvider.currentSongId.toString()}, fav ${isFavorite}");
-                    await favProvider.toggleSongFavorite(userProvider.user!.id.toString(), audioProvider.currentSongId.toString(), isFavorite);
+                    await favProvider.toggleSongFavorite(userProvider.user!.id.toString(), audioProvider.currentSongId.toString(), isFavorite, songData);
                   },
                 ),
               ],

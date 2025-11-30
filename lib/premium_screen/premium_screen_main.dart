@@ -4,18 +4,17 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:music_app/provider/premium_povider.dart';
 import 'package:provider/provider.dart';
-import '../payment/MoMoWebView.dart';
 import '../payment/VNPayWebView.dart';
 import '../provider/user_provider.dart';
 
-class PremiumScreen extends StatefulWidget {
-  const PremiumScreen({super.key});
+class PremiumScreenMain extends StatefulWidget {
+  const PremiumScreenMain({super.key});
 
   @override
-  State<PremiumScreen> createState() => _PremiumScreenState();
+  State<PremiumScreenMain> createState() => _PremiumScreenMainState();
 }
 
-class _PremiumScreenState extends State<PremiumScreen> {
+class _PremiumScreenMainState extends State<PremiumScreenMain> {
   int selected = 0;
 
   List<Map<String, dynamic>> plans = [];
@@ -45,29 +44,22 @@ class _PremiumScreenState extends State<PremiumScreen> {
     }
   }
 
-  Future<String?> createMoMoPayment(String planId, String userId) async {
-    final url = Uri.parse("http://10.0.2.2:3000/api/momo");
-
-    final res = await http.post(
-      url,
-      headers: {"Content-Type": "application/json"},
-      body: jsonEncode({
-        "user_id": userId,
-        "plan_id": planId,
-      }),
-    );
-
-    final data = jsonDecode(res.body);
-    return data["payUrl"];
-  }
-
-
   @override
   Widget build(BuildContext context) {
     final premiumProvider = Provider.of<PremiumProvider>(context);
     String endDay = premiumProvider!.endDay;
     String dayLeft = premiumProvider!.dayLeft;
     return Scaffold(
+      appBar: AppBar(
+        title: Text("Nâng cấp tài khoản", style: TextStyle(fontSize: 25, fontWeight: FontWeight.bold),),
+        centerTitle: true,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back_ios),
+          onPressed: (){
+            Navigator.pop(context);
+          },
+        ),
+      ),
       body: plans.isEmpty
           ? const Center(child: CircularProgressIndicator(color: Colors.white))
           : SingleChildScrollView(
@@ -137,50 +129,50 @@ class _PremiumScreenState extends State<PremiumScreen> {
 
               Center(
                 child: ElevatedButton(
-                  // onPressed: () async {
-                  //
-                  //   if(endDay.isNotEmpty && dayLeft.isNotEmpty){
-                  //     showDialog(
-                  //       context: context,
-                  //       builder: (_) => AlertDialog(
-                  //         title: const Text("Tài khoản premium của bạn vẫn còn hiệu lực", textAlign: TextAlign.center,),
-                  //       ),
-                  //     );
-                  //     return;
-                  //   }
-                  //
-                  //   final selectedPlan = plans[selected];
-                  //   final user = Provider.of<UserProvider>(context, listen: false).user;
-                  //   // gọi API tạo payment url
-                  //   final res = await http.post(
-                  //     Uri.parse("http://10.0.2.2:3000/api/create-qr"),
-                  //     headers: {"Content-Type": "application/json"},
-                  //     body: jsonEncode({
-                  //       "user_id": user!.id.toString(),
-                  //       "plan_id": selectedPlan["id"],
-                  //     }),
-                  //   );
-                  //
-                  //   final data = jsonDecode(res.body);
-                  //   final durationDays = data["duration_days"];
-                  //
-                  //   if (res.statusCode == 201) {
-                  //     final paymentUrl = data["paymentUrl"];
-                  //
-                  //     Navigator.push(
-                  //       context,
-                  //       MaterialPageRoute(
-                  //         builder: (_) => VNPayWebView(
-                  //           url: paymentUrl,
-                  //           planId: selectedPlan["id"].toString(),
-                  //         ),
-                  //       ),
-                  //     );
-                  //   }
-                  // },
+                  onPressed: () async {
+
+                    if(endDay.isNotEmpty && dayLeft.isNotEmpty){
+                      showDialog(
+                        context: context,
+                        builder: (_) => AlertDialog(
+                          title: const Text("Tài khoản premium của bạn vẫn còn hiệu lực", textAlign: TextAlign.center,),
+                        ),
+                      );
+                      return;
+                    }
+
+                    final selectedPlan = plans[selected];
+                    final user = Provider.of<UserProvider>(context, listen: false).user;
+                    // gọi API tạo payment url
+                    final res = await http.post(
+                      Uri.parse("http://10.0.2.2:3000/api/create-qr"),
+                      headers: {"Content-Type": "application/json"},
+                      body: jsonEncode({
+                        "user_id": user!.id.toString(),
+                        "plan_id": selectedPlan["id"],
+                      }),
+                    );
+
+                    final data = jsonDecode(res.body);
+                    final durationDays = data["duration_days"];
+
+                    if (res.statusCode == 201) {
+                      final paymentUrl = data["paymentUrl"];
+
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => VNPayWebView(
+                            url: paymentUrl,
+                            planId: selectedPlan["id"].toString(),
+                          ),
+                        ),
+                      );
+                    }
+                  },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.amberAccent,
-                    padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 120),
+                    padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 130),
                     shape:
                     RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                   ),
@@ -188,35 +180,13 @@ class _PremiumScreenState extends State<PremiumScreen> {
                     "Nâng cấp ngay",
                     style: TextStyle(fontSize: 18, color: Colors.black),
                   ),
-                  onPressed: () async {
-                    final selectedPlan = plans[selected];
-                    final user = Provider.of<UserProvider>(context, listen: false).user;
-
-                    final payUrl = await createMoMoPayment(
-                      selectedPlan["id"].toString(),
-                      user!.id.toString(),
-                    );
-
-                    if (payUrl != null) {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => MoMoWebView(
-                            url: payUrl,
-                            planId: selectedPlan["id"].toString(),
-                          ),
-                        ),
-                      );
-                    }
-                  }
-
                 ),
               ),
 
               const SizedBox(height: 20),
               const Center(
                 child: Text(
-                  "Thanh toán qua MoMo.",
+                  "Thanh toán qua VNPay.",
                   style: TextStyle(color: Colors.white54),
                 ),
               )

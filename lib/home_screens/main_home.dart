@@ -1,5 +1,3 @@
-import 'dart:io';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -11,12 +9,12 @@ import 'package:music_app/provider/user_provider.dart';
 import 'package:page_transition/page_transition.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
 import '../library_screens/library_screen.dart';
 import '../personal_screens/personal_screen.dart';
 import '../premium_screen/premium_screen.dart';
+import '../premium_screen/premium_screen_main.dart';
 import '../provider/audio_player_provider.dart';
-import '../provider/models/user_model.dart';
+import '../provider/premium_povider.dart';
 import '../provider/status_provider.dart';
 import '../setting_screens/setting_screen.dart';
 import '../top_screens/top_chart_screen.dart';
@@ -43,12 +41,15 @@ class _MainHomeState extends State<MainHome> {
   @override
   void initState() {
     super.initState();
-    final audioProvider =
-    Provider.of<AudioPlayerProvider>(context, listen: false);
-    audioProvider.loadLastSong();
+    final user = Provider.of<UserProvider>(context, listen: false).user;
+    final audioProvider = Provider.of<AudioPlayerProvider>(context, listen: false);
 
     Future.microtask(() {
-      audioProvider.loadLastSettings();
+      if(mounted){
+        audioProvider.loadLastSong();
+        audioProvider.loadLastSettings();
+        Provider.of<PremiumProvider>(context, listen: false).checkPremiumStatus(user!.id.toString());
+      }
     });
   }
 
@@ -94,6 +95,8 @@ class _MainHomeState extends State<MainHome> {
     final user = Provider.of<UserProvider>(context).user;
     final audioProvider = Provider.of<AudioPlayerProvider>(context);
 
+    bool isPremium = context.watch<PremiumProvider>().isPremium;
+
     return WillPopScope(
       onWillPop: () async {
         final isFirstRoute =
@@ -111,35 +114,87 @@ class _MainHomeState extends State<MainHome> {
         // ------------------ DRAWER ------------------
         drawer: Drawer(
           width: 350,
-          backgroundColor: const Color(0xFF0F0F1C),
+          backgroundColor: const Color(0xFF1E201E),
           child: ListView(
             padding: EdgeInsets.zero,
             children: [
               DrawerHeader(
-                decoration: const BoxDecoration(),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
+                margin: EdgeInsets.zero,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: user == null
+                    ? const Center(
+                  child: Text("Đang tải...", style: TextStyle(color: Colors.white)),
+                )
+                    :Row(
                   children: [
-                    CircleAvatar(
-                      radius: 28,
-                      backgroundColor: Colors.blueAccent.withOpacity(0.15),
-                      child: CircleAvatar(
-                        radius: 25,
-                        backgroundImage: user?.avatar != null
-                            ? NetworkImage(user!.avatar)
-                            : const AssetImage('assets/images/profile.png'),
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Text(
-                        user?.name ?? 'Khách',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
+
+                    // Avatar
+                    Stack(
+                      children: [
+                        // Viền vàng khi Premium
+                        Container(
+                          width: 58,
+                          height: 58,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                          ),
                         ),
-                        overflow: TextOverflow.ellipsis,
+
+                        // Avatar real
+                        Positioned(
+                          left: 3,
+                          top: 3,
+                          child: CircleAvatar(
+                            backgroundColor: Colors.transparent,
+                            backgroundImage: (user != null && user.avatar.isNotEmpty)
+                                ? NetworkImage(user.avatar)
+                                : const AssetImage('assets/images/profile.png') as ImageProvider,
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(width: 14),
+
+                    // Name + Premium Label
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            user!.name ?? "Khách",
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+
+                          if (isPremium == true)
+                            const SizedBox(height: 4),
+
+                          if (isPremium == true)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 4, vertical: 0),
+                              decoration: BoxDecoration(
+                                color: Colors.yellowAccent.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.yellowAccent, width: 1),
+                              ),
+                              child: const Text(
+                                "Premium",
+                                style: TextStyle(
+                                  color: Colors.yellowAccent,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
                   ],
@@ -156,12 +211,12 @@ class _MainHomeState extends State<MainHome> {
               ),
 
               _buildDrawerItem(
-                icon: Icons.settings,
-                text: "Cài đặt",
+                icon: Icons.workspace_premium,
+                text: "Nâng cấp premium",
                 onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(
-                        builder: (context) => const SettingsScreen())),
+                        builder: (context) => const PremiumScreenMain())),
               ),
 
               const Divider(color: Colors.white24, indent: 16, endIndent: 16),

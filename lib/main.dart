@@ -6,8 +6,11 @@ import 'package:music_app/login_screens/login_demo.dart';
 import 'package:music_app/provider/audio_player_provider.dart';
 import 'package:music_app/provider/favorite_album_provider.dart';
 import 'package:music_app/provider/favorite_song_provider.dart';
+import 'package:music_app/provider/follow_artist_provider.dart';
 import 'package:music_app/provider/load_song_provider.dart';
 import 'package:music_app/provider/models/user_model.dart';
+import 'package:music_app/provider/premium_povider.dart';
+import 'package:music_app/provider/provider_language.dart';
 import 'package:music_app/provider/status_provider.dart';
 import 'package:music_app/provider/user_provider.dart';
 import 'package:music_app/provider_themes/provider_theme.dart';
@@ -58,6 +61,9 @@ void main() async {
         ChangeNotifierProvider(create: (_) => FavoriteAlbumProvider()),
         ChangeNotifierProvider(create: (_) => FavoriteSongProvider()),
         ChangeNotifierProvider(create: (_) => LoadSongProvider()),
+        ChangeNotifierProvider(create: (_) => FollowArtistProvider()),
+        ChangeNotifierProvider(create: (_) => PremiumProvider()),
+        ChangeNotifierProvider(create: (_) => LanguageProvider()),
       ],
       child: MyApp(isLoggedIn: isLoggedIn, isSelected: checkArtistSelectStatus),
     ),
@@ -70,10 +76,12 @@ class MyApp extends StatelessWidget {
   const MyApp({required this.isLoggedIn, required this.isSelected, super.key});
   @override
   Widget build(BuildContext context) {
+    final lang = Provider.of<LanguageProvider>(context).lang;
     return Consumer<ThemeProvider>(
       builder: (context, themeProvider, _) {
         return MaterialApp(
           debugShowCheckedModeBanner: false,
+          locale: Locale(lang),
           navigatorKey: navigatorKey,
           theme: themeProvider.theme,
           home: _getInitialScreen(context),

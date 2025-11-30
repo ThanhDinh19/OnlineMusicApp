@@ -12,6 +12,7 @@ import 'package:music_app/premium_screen/premium_screen.dart';
 import 'package:page_transition/page_transition.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
+import '../design/EqualizerAnimation.dart';
 import '../home_screens/just_audio_demo.dart';
 import '../home_screens/mini_player.dart';
 import '../premium_screen/PremiumBottomSheet.dart';
@@ -510,7 +511,6 @@ class TopChartScreenState extends State<TopChartScreen> {
     ) ?? false;
   }
 
-
   Future handle_new_playlist(BuildContext context, String namePlaylistController) async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final userId = userProvider.user?.id;
@@ -548,6 +548,8 @@ class TopChartScreenState extends State<TopChartScreen> {
   }
 
 
+
+
   @override
   void dispose() {
     player.dispose();
@@ -556,8 +558,7 @@ class TopChartScreenState extends State<TopChartScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final audioProvider = Provider.of<AudioPlayerProvider>(
-        context, listen: false);
+    final audioProvider = Provider.of<AudioPlayerProvider>(context);
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F1C),
       body: Container(
@@ -628,7 +629,7 @@ class TopChartScreenState extends State<TopChartScreen> {
               ),
 
               const SizedBox(height: 10),
-              _buildHotList(context),
+              _buildHotList(context, audioProvider),
               const SizedBox(height: 80),
             ],
           ),
@@ -637,7 +638,7 @@ class TopChartScreenState extends State<TopChartScreen> {
     );
   }
 
-  Widget _buildHotList(BuildContext context) {
+  Widget _buildHotList(BuildContext context, AudioPlayerProvider audioProvider) {
     return loading
         ? const Center(child: CircularProgressIndicator())
         : ListView.builder(
@@ -681,11 +682,57 @@ class TopChartScreenState extends State<TopChartScreen> {
             color: currentIndex == index ? Colors.green : null,
             size: 40,
           ),
-          title: Text(
-            title,
-            style: const TextStyle(color: Colors.white),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+          title: Row(
+            children: [
+              if (audioProvider.currentIndex == index && audioProvider.playlistId == "hot_list") ...[
+                const SizedBox(width: 2),
+                if(audioProvider.isPlaying)...[
+                  EqualizerAnimation(isPlaying: audioProvider.isPlaying),
+                  const SizedBox.shrink(),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFFFFE700),
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
+                  ),
+                ]
+                else ...[
+                  const SizedBox.shrink(),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
+                  ),
+                ],
+              ]else...[
+                Expanded(
+                  child: Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                  ),
+                ),
+              ],
+            ],
           ),
           subtitle:
           Text(
@@ -748,7 +795,7 @@ class TopChartScreenState extends State<TopChartScreen> {
                             ),
                             ListTile(
                               leading: const Icon(Icons.add_circle_outline),
-                              title: const Text('Thêm vào danh sách phát'),
+                              title: const Text('Thêm vào playlist'),
                               onTap: () async {
                                 await getUserPlaylists();
                                 setState(() {});
@@ -791,7 +838,11 @@ class TopChartScreenState extends State<TopChartScreen> {
 
             // Set playlist & bài hiện tại
             await audioProvider.setPlaylist(songsList, startIndex: index,);
-
+            audioProvider.setCurrentSong(index);
+            audioProvider.setPlaying(true);
+            audioProvider.setPlaylistId("hot_list");
+            print(audioProvider.playlistId);
+            print(audioProvider.isPlaying);
             GestureDetector(
               onTap: () {
                 Navigator.push(

@@ -20,21 +20,26 @@ class FavoriteSongProvider extends ChangeNotifier{
     }
   }
 
-  Future<void> toggleSongFavorite(String userId, String songId, bool isFav) async {
+  Future<void> toggleSongFavorite(
+      String userId, String songId, bool isFav, Map<String, dynamic> songData) async {
+
     final url = Uri.parse("http://10.0.2.2:8081/music_API/online_music/song/favorite_song.php");
-    final res = await http.post(url, body: {
+
+    await http.post(url, body: {
       "user_id": userId,
       "song_id": songId,
       "action": isFav ? "add" : "remove"
     });
-    print("userID: ${userId}, songId: ${songId}, fav ${isFav}");
-    print(res.body);
-    // Cập nhật cục bộ (giúp refresh ngay lập tức mà không reload API)
+
     if (isFav) {
-      // Tự thêm tạm songs mới (cần load lại nếu muốn chính xác)
+      //  Tự thêm vào list local ngay lập tức
+      _songs.insert(0, songData);
     } else {
-      _songs.removeWhere((a) => a["song_id"].toString() == songId);
+      // Remove ngay lập tức
+      _songs.removeWhere((s) => s["song_id"].toString() == songId);
     }
+
     notifyListeners();
   }
+
 }

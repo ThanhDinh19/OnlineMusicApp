@@ -792,6 +792,9 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
               elevation: 0,
               iconTheme: const IconThemeData(color: Colors.white),
               centerTitle: true,
+              actions: [
+
+              ],
             ),
           body: SingleChildScrollView(
             child: Column(
@@ -813,7 +816,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                _buildRecommendSongList(context),
+                _buildRecommendSongList(context, audioProvider),
                 const SizedBox(height: 80),
 
               ],
@@ -1132,23 +1135,48 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                     EqualizerAnimation(isPlaying: audioProvider.isPlaying),
                     const SizedBox.shrink(),
                     const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        songTitle,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFFFFE700),
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
+                    ),
                   ]
                   else ...[
                     const SizedBox.shrink(),
-                  ]
-                ],
-                Expanded(
-                  child: Text(
-                    songTitle,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
+                    Expanded(
+                      child: Text(
+                        songTitle,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
                     ),
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
+                  ],
+                ]else...[
+                  Expanded(
+                    child: Text(
+                      songTitle,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
                   ),
-                ),
+                ],
               ],
             ),
 
@@ -1256,7 +1284,8 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
               await audioProvider.setPlaylist(songsList, startIndex: index, statusIndex: 1);
               audioProvider.setCurrentSong(index);
               audioProvider.setPlaying(true);
-              audioProvider.playlistId = widget.playlistId;
+              audioProvider.setPlaylistId(widget.playlistId);
+
 
               // khi nhạc phát mới hiện thị, mới đăng nhập vào hoặc mới đăng xuất ra thì k hiển thị
               GestureDetector(
@@ -1519,7 +1548,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
   }
 
   // danh sách nhạc gợi ý lấy từ internet (finished)
-  Widget _buildRecommendSongList(BuildContext context){
+  Widget _buildRecommendSongList(BuildContext context, AudioPlayerProvider audioProvider){
     final user = Provider.of<UserProvider>(context, listen: false).user;
     return starterSongs.isEmpty
         ? const Center(child: Text("Không có dữ liệu"))
@@ -1550,11 +1579,57 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
           )
               : const Icon(Icons.music_note,
               color: Colors.grey, size: 40),
-          title: Text(
-            title,
-            style: const TextStyle(color: Colors.white),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+          title: Row(
+            children: [
+              if (audioProvider.currentIndex == index && audioProvider.playlistId == "RecommendSong") ...[
+                const SizedBox(width: 2),
+                if(audioProvider.isPlaying)...[
+                  EqualizerAnimation(isPlaying: audioProvider.isPlaying),
+                  const SizedBox.shrink(),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFFFFE700),
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
+                  ),
+                ]
+                else ...[
+                  const SizedBox.shrink(),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
+                  ),
+                ],
+              ]else...[
+                Expanded(
+                  child: Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                  ),
+                ),
+              ],
+            ],
           ),
           subtitle: Text(
             artist,
@@ -1569,7 +1644,9 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
               await addToPlaylist(song_id.toString(), user!.id.toString(), widget.playlistId.toString());
               showSuccessToast("Đã thêm vào danh sách phát");
               await getPlaylistSongs(user.id, widget.playlistId);
-              setState(() {});
+              setState(() {
+                starterSongs.removeWhere((e) => e["song_id"] == song["song_id"]);
+              });
             },
           ),
           onTap: () async {
@@ -1578,6 +1655,10 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
             List<Map<String, dynamic>> songsList = starterSongs;
 
             await audioProvider.setPlaylist(songsList, startIndex: index);
+
+            audioProvider.setCurrentSong(index);
+            audioProvider.setPlaying(true);
+            audioProvider.setPlaylistId("RecommendSong");
 
             GestureDetector(
               onTap: () {

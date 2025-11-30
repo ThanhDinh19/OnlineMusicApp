@@ -125,7 +125,6 @@ class _ArtistSelectScreenState extends State<ArtistSelectScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F1419),
       appBar: AppBar(
         leading: IconButton(
           icon: Icon(Icons.arrow_back_ios_rounded),
@@ -134,7 +133,6 @@ class _ArtistSelectScreenState extends State<ArtistSelectScreen> {
           },
         ),
         elevation: 0,
-        backgroundColor: const Color(0xFF1A1F36),
         title: const Text(
           "Chọn nghệ sĩ yêu thích của bạn",
           style: TextStyle(
@@ -222,7 +220,7 @@ class _ArtistSelectScreenState extends State<ArtistSelectScreen> {
             borderSide: BorderSide.none,
           ),
           filled: true,
-          fillColor: const Color(0xFF1A1F36),
+          fillColor: Colors.black38,
           contentPadding: const EdgeInsets.symmetric(vertical: 14),
         ),
         onChanged: searchArtist,
@@ -313,12 +311,7 @@ class _ArtistSelectScreenState extends State<ArtistSelectScreen> {
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
-        gradient: LinearGradient(
-          colors: [Colors.blueAccent, Colors.blue.shade700],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-
+        color: Colors.black38,
       ),
       child: Material(
         color: Colors.transparent,

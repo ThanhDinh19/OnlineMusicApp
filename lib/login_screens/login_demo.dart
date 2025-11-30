@@ -188,19 +188,19 @@ class LoginScreenDemoState extends State<LoginScreenDemo> {
         children: [
 
           Container(
-            height: 100,
+            height:200,
           ),
-          Icon(
-            Icons.music_note,
-            color: Colors.indigoAccent,
-            size: 65,
+          Image.asset(
+            'assets/images/app_logo.jpg',
+            width: 200,
+            height: 200,
           ),
 
           SizedBox(height: 15),
 
           Center(
             child: Text(
-              'Chào mừng đến với Chill Chill.\n'
+              'Chào mừng đến với VIVORA.\n'
               'Âm nhạc đang chờ bạn khám phá.',
               textAlign: TextAlign.center,
               style: TextStyle(

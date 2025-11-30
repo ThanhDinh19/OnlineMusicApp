@@ -77,6 +77,10 @@ class AudioPlayerProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setPlaylistId(String id) {
+    playlistId = id;
+    notifyListeners();
+  }
 
   void setPlaying(bool playing) {
     isPlaying = playing;

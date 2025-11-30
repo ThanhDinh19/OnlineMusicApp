@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:http/http.dart' as http;
 
+import '../provider/premium_povider.dart';
+
 class VNPayWebView extends StatefulWidget {
   final String url;
   final String planId;
@@ -49,7 +51,7 @@ class _VNPayWebViewState extends State<VNPayWebView> {
       handled = true;
 
       // Gửi JSON đúng cách
-      await http.post(
+      final res =  await http.post(
         Uri.parse("http://10.0.2.2:3000/api/confirm-payment"),
         headers: {
           "Content-Type": "application/json",
@@ -62,13 +64,24 @@ class _VNPayWebViewState extends State<VNPayWebView> {
         }),
       );
 
+      final data = jsonDecode(res.body);
+      final durationDays = data["duration_days"];
+
       if (context.mounted) {
         Navigator.pop(context);
         showDialog(
           context: context,
-          builder: (_) =>
-          const AlertDialog(title: Text("Thanh toán thành công!")),
+          builder: (_) => AlertDialog(
+            title: const Text("Thanh toán thành công!", textAlign: TextAlign.center,),
+            content: Text("Gói Premium của bạn có hiệu lực: $durationDays ngày.",
+              style: TextStyle(fontSize: 20),
+              textAlign: TextAlign.center,
+            ),
+          ),
         );
+        final user = Provider.of<UserProvider>(context, listen: false).user;
+        final premiumProvider = Provider.of<PremiumProvider>(context, listen: false);
+        premiumProvider.checkPremiumStatus(user!.id.toString());
       }
     } else {
       if (!handled) {

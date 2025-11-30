@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:http/http.dart' as http;
 import 'package:music_app/library_screens/playlist_detail_screen.dart';
+import 'package:music_app/provider/load_song_provider.dart';
 import 'package:provider/provider.dart';
 import '../provider/user_provider.dart';
-import '../test.dart';
 
 class Playlist extends StatefulWidget {
   @override
@@ -13,173 +13,179 @@ class Playlist extends StatefulWidget {
 }
 
 class _PlaylistState extends State<Playlist> {
-  List<Map<String, dynamic>> onlinePlaylists = [];
-
   @override
   void initState() {
     super.initState();
-    final user = Provider.of<UserProvider>(context, listen: false).user;
-    if (user != null) getUserPlaylists();
+
+    /// Chỉ gọi API sau khi widget đã build context
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final user = Provider.of<UserProvider>(context, listen: false).user;
+      if (user != null) {
+        await Provider.of<LoadSongProvider>(context, listen: false)
+            .getUserPlaylists(user.id.toString());
+      }
+    });
   }
 
-
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final user = Provider.of<UserProvider>(context, listen: false).user;
+    final uid = user!.id.toString();
+    Provider.of<LoadSongProvider>(context, listen: false)
+        .getUserPlaylists(user.id.toString());
+  }
+  // Toast gọn
   void showToast(String message) {
     Fluttertoast.showToast(
       msg: message,
-      gravity: ToastGravity.CENTER,       // vị trí giữa màn hình
-      backgroundColor: Colors.black45.withOpacity(0.6),      // màu nền
-      textColor: Colors.white,            // màu chữ
-      fontSize: 16.0,                     // cỡ chữ
+      gravity: ToastGravity.CENTER,
+      backgroundColor: Colors.black45.withOpacity(0.6),
+      textColor: Colors.white,
+      fontSize: 16.0,
+    );
+    Future.delayed(const Duration(seconds: 1), () => Fluttertoast.cancel());
+  }
+
+  // API tạo playlist
+  Future handleNewPlaylist(BuildContext context, String name) async {
+    final user = Provider.of<UserProvider>(context, listen: false).user;
+    if (user == null) {
+      showToast("Vui lòng đăng nhập");
+      return;
+    }
+
+    final response = await http.post(
+      Uri.parse(
+          "http://10.0.2.2:8081/music_API/online_music/playlist/create_playlist.php"),
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({"user_id": user.id, "name": name}),
     );
 
-    Future.delayed(Duration(seconds: 1), () {
-      Fluttertoast.cancel(); // ẩn thủ công sau 1 giây
-    });
-  }
-  Future handle_new_playlist(BuildContext context, String namePlaylistController) async {
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
-    final userId = userProvider.user?.id;
-    //Login API URL
-    //use your local IP address instead of localhost or use Web API
-    final response = await http.post(
-      Uri.parse("http://10.0.2.2:8081/music_API/online_music/playlist/create_playlist.php"),
-      headers: {"Content-Type": "application/json"},
-      body: jsonEncode({
-        "user_id": userId.toString(),
-        "name": namePlaylistController,
-      }),
-    );
     if (response.statusCode == 200) {
-      //Server response into variable
-      print(response.body);
       final data = jsonDecode(response.body);
 
-      //Check Saving Status
       if (data["status"] == "success") {
-        print("Save playlist into database successfully");
-
+        debugPrint("Playlist created");
       } else {
-        setState(() {
-          //Show Error Message Dialog
-          showToast("Lỗi khi tạo playlist");
-        });
+        showToast("Không thể tạo playlist");
       }
     } else {
-      setState(() {
-        //Show Error Message Dialog
-        showToast("Lỗi kết nối mạng");
-      });
+      showToast("Lỗi kết nối mạng");
     }
   }
-  Future createNewPlaylist(BuildContext context, Function(String) onCreate) async {
-    final TextEditingController namePlaylistController = TextEditingController();
-    showModalBottomSheet(
+
+  // UI tạo playlist
+  Future createNewPlaylist(BuildContext context) async {
+    final TextEditingController controller = TextEditingController();
+    final user = Provider.of<UserProvider>(context, listen: false).user;
+    if (user == null) return;
+
+    await showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.transparent,
       isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (context) {
         return DraggableScrollableSheet(
-          initialChildSize: 0.9,
-          minChildSize: 0.1,
+          initialChildSize: 0.88,
           maxChildSize: 0.9,
+          minChildSize: 0.3,
           expand: false,
-          builder: (context, scrollController) {
+          builder: (_, scrollController) {
             return Container(
-              padding: EdgeInsets.symmetric(horizontal: 20, vertical: 20),
               decoration: BoxDecoration(
-                color: Color(0xFF1E201E),
+                color: const Color(0xFF1E201E),
                 borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
               ),
-              child: SingleChildScrollView( // SingleChildScrollView tránh overflow khi bàn phím bật.
+              padding: const EdgeInsets.all(20),
+              child: SingleChildScrollView(
                 controller: scrollController,
                 child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Container(
                       width: 40,
                       height: 4,
-                      margin: EdgeInsets.only(bottom: 20),
                       decoration: BoxDecoration(
                         color: Colors.white54,
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
-                    Text(
+                    const SizedBox(height: 20),
+                    const Text(
                       "Đặt tên cho playlist của bạn",
                       style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 22,
-                      ),
-                      textAlign: TextAlign.center,
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold),
                     ),
-                    SizedBox(height: 30),
+                    const SizedBox(height: 30),
                     TextField(
-                      controller: namePlaylistController,
-                      style: TextStyle(color: Colors.white, fontSize: 21, fontWeight: FontWeight.bold),
+                      controller: controller,
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 21,
+                          fontWeight: FontWeight.bold),
                       decoration: InputDecoration(
-                        hintText: ".......",
+                        hintText: "Tên playlist...",
                         hintStyle: TextStyle(color: Colors.white54),
                         filled: true,
                         fillColor: Colors.grey[850],
-                        contentPadding:
-                        EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide.none,
                         ),
+                        contentPadding: const EdgeInsets.all(14),
                       ),
                     ),
-                    SizedBox(height: 30),
+                    const SizedBox(height: 30),
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         TextButton(
-                          style: TextButton.styleFrom(
-                            foregroundColor: Colors.white,
-                            padding: EdgeInsets.symmetric(
-                                horizontal: 25, vertical: 14),
-                          ),
                           onPressed: () => Navigator.pop(context),
-                          child: Text(
+                          child: const Text(
                             "Hủy",
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+                            style: TextStyle(
+                                color: Colors.white, fontSize: 18),
                           ),
                         ),
                         ElevatedButton(
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.black38,
-                            foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            padding: EdgeInsets.symmetric(
-                                horizontal: 25, vertical: 14),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 30, vertical: 14),
                           ),
-                          onPressed: () {
-                            final name = namePlaylistController.text.trim();
-                            if (name.isNotEmpty) {
-                              onCreate(name);
-                              handle_new_playlist(context, name).then((_) {
-                                getUserPlaylists();
-                              });
-                              showToast("Đã tạo playlist");
-                              Navigator.pop(context);
+                          onPressed: () async {
+                            final name = controller.text.trim();
+
+                            if (name.isEmpty) {
+                              showToast("Hãy nhập tên playlist");
+                              return;
                             }
-                            else{
-                              showToast("Hãy đặt tên cho playlist");
-                            }
+
+                            await handleNewPlaylist(context, name);
+
+                            await Provider.of<LoadSongProvider>(context,
+                                listen: false)
+                                .getUserPlaylists(user.id.toString());
+
+                            showToast("Đã tạo playlist");
+
+                            Navigator.pop(context);
                           },
-                          child: Text(
+                          child: const Text(
                             "Tạo",
                             style: TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 20),
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold),
                           ),
-                        ),
+                        )
                       ],
                     ),
-                    SizedBox(height: 20),
                   ],
                 ),
               ),
@@ -190,39 +196,54 @@ class _PlaylistState extends State<Playlist> {
     );
   }
 
-  Future<void> getUserPlaylists() async {
-    final userProvider = Provider.of<UserProvider>(context, listen: false).user;
-    final uId = userProvider!.id.toString();
-    final url = Uri.parse("http://10.0.2.2:8081/music_API/online_music/playlist/get_user_playlists.php?user_id=$uId");
-    final response = await http.get(url);
+  Future<void> updatePlaylistName(String userId, String playlistId, String newName) async {
+    final url = Uri.parse("http://10.0.2.2:8081/music_API/online_music/playlist/update_playlist_name.php");
 
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      if (data["status"] == "success") {
-        setState(() {
-          onlinePlaylists = List<Map<String, dynamic>>.from(data["playlists"]);
-        });
+    try {
+      final response = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "user_id": userId,
+          "playlist_id": playlistId,
+          "new_name": newName,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data["status"] == "success") {
+          print("Playlist updated successfully!");
+        } else {
+          print("${data["message"]}");
+        }
+      } else {
+        print("Server error: ${response.statusCode}");
       }
+    } catch (e) {
+      print("Error updating playlist name: $e");
     }
   }
 
+
   @override
   Widget build(BuildContext context) {
-    final user = Provider.of<UserProvider>(context, listen: false).user;
+    final user = Provider.of<UserProvider>(context).user;
+
+    /// Lấy playlist TỰ ĐỘNG rebuild khi provider notifyListeners()
+    final playlistProvider = Provider.of<LoadSongProvider>(context);
+    final playlists = playlistProvider.playlists;
 
     return ListView.builder(
       padding: const EdgeInsets.only(bottom: 80),
-      itemCount: onlinePlaylists.length + 1,
+      itemCount: playlists.length + 1,
       itemBuilder: (context, index) {
+        // Nút "Tạo playlist"
         if (index == 0) {
           return Padding(
             padding: const EdgeInsets.all(16),
             child: GestureDetector(
-              onTap: () {
-                createNewPlaylist(context, (namePlaylist) async {
-                  await getUserPlaylists();
-                });
-              },
+              onTap: () => createNewPlaylist(context),
               child: Row(
                 children: [
                   Container(
@@ -232,97 +253,115 @@ class _PlaylistState extends State<Playlist> {
                       borderRadius: BorderRadius.circular(5),
                       gradient: const LinearGradient(
                         colors: [Colors.white10, Colors.white12],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
                       ),
                     ),
-                    child: const Center(
-                      child: Icon(Icons.add_circle_outline, color: Colors.grey, size: 27),
-                    ),
+                    child: const Icon(Icons.add, color: Colors.grey, size: 30),
                   ),
                   const SizedBox(width: 15),
                   const Text(
                     "Tạo danh sách phát",
-                    style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-                  )
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold),
+                  ),
                 ],
               ),
             ),
           );
         }
 
-        final playlist = onlinePlaylists[index - 1];
+        // Playlist item
+        final playlist = playlists[index - 1];
         final songs = playlist["songs"] ?? [];
         final songCount = playlist["song_count"];
 
-        Widget leadingWidget;
+        Widget coverWidget;
+
         if (songs.length >= 4) {
-          leadingWidget = ClipRRect(
+          coverWidget = ClipRRect(
             borderRadius: BorderRadius.circular(5),
-            child: Container(
+            child: SizedBox(
               width: 60,
               height: 60,
-              color: Colors.grey.shade800,
               child: GridView.builder(
                 padding: EdgeInsets.zero,
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                physics: NeverScrollableScrollPhysics(),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
                   mainAxisSpacing: 1,
                   crossAxisSpacing: 1,
                 ),
                 itemCount: 4,
-                itemBuilder: (context, i) {
-                  final song = songs[i];
-                  return Image.network(
-                    song["cover"] ?? "",
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) =>
-                        Container(color: Colors.grey.shade700),
-                  );
-                },
+                itemBuilder: (_, i) => Image.network(
+                  songs[i]["cover"] ?? "",
+                  fit: BoxFit.cover,
+                ),
               ),
             ),
           );
         } else if (songs.isNotEmpty) {
-          leadingWidget = ClipRRect(
+          coverWidget = ClipRRect(
             borderRadius: BorderRadius.circular(5),
             child: Image.network(
               songs[0]["cover"] ?? "",
               width: 60,
               height: 60,
               fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) =>
-                  Container(color: Colors.grey.shade700),
             ),
           );
         } else {
-          leadingWidget = ClipRRect(
-            borderRadius: BorderRadius.circular(5),
-            child: Container(
-              width: 60,
-              height: 60,
+          coverWidget = Container(
+            width: 60,
+            height: 60,
+            decoration: BoxDecoration(
               color: Colors.grey.shade800,
-              child: const Icon(Icons.library_music, color: Colors.white54),
+              borderRadius: BorderRadius.circular(5),
             ),
+            child:
+            const Icon(Icons.library_music, color: Colors.white54),
           );
         }
 
         return ListTile(
-          leading: leadingWidget,
+          leading: coverWidget,
           title: Text(
             playlist["name"] ?? "Chưa đặt tên",
             style: const TextStyle(color: Colors.white),
           ),
           subtitle: Text(
             "$songCount bài hát",
-            style: const TextStyle(color: Colors.grey),
+            style: const TextStyle(color: Colors.white54),
           ),
+          trailing: PopupMenuButton(
+            color: Colors.grey[900],
+            icon: Icon(Icons.more_horiz, color: Colors.white),
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: "rename",
+                child: Text("Đổi tên", style: TextStyle(color: Colors.white)),
+              ),
+              const PopupMenuItem(
+                value: "delete",
+                child: Text("Xóa playlist", style: TextStyle(color: Colors.red)),
+              ),
+            ],
+            onSelected: (value) async {
+              if (value == "delete") {
+                handleDeletePlaylist(playlist["playlist_id"].toString());
+              }
+
+              if (value == "rename") {
+                showRenameBottomSheet(user!.id.toString(), playlist["playlist_id"].toString(), playlist["name"].toString());
+              }
+            },
+          ),
+
           onTap: () async {
-            final shouldRefresh = await Navigator.push(
+            final refresh = await Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => PlaylistDetailScreen(
+                builder: (_) => PlaylistDetailScreen(
                   playlistName: playlist["name"],
                   playlistId: playlist["playlist_id"].toString(),
                   userId: user!.id.toString(),
@@ -330,12 +369,147 @@ class _PlaylistState extends State<Playlist> {
               ),
             );
 
-            if (shouldRefresh == true) {
-              await getUserPlaylists();
+            if (refresh == true) {
+              await playlistProvider.getUserPlaylists(user!.id.toString());
             }
           },
         );
       },
     );
   }
+
+  void showRenameBottomSheet(String userId, String playlistId, String oldName) {
+    final TextEditingController controller =
+    TextEditingController(text: oldName);
+
+    final playlistProvider = Provider.of<LoadSongProvider>(context, listen: false);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,       // kéo theo bàn phím
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.9,
+          minChildSize: 0.1,
+          maxChildSize: 0.9,
+          builder: (_, scrollController) {
+            return Container(
+              padding: EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+              decoration: BoxDecoration(
+                color: Color(0xFF1E1E1E),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              ),
+              child: SingleChildScrollView(
+                controller: scrollController,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // nút kéo
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        margin: EdgeInsets.only(bottom: 20),
+                        decoration: BoxDecoration(
+                          color: Colors.white30,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                      ),
+                    ),
+
+                    Text(
+                      "Đổi tên playlist",
+                      style: TextStyle(
+                          fontSize: 20,
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold),
+                    ),
+
+                    SizedBox(height: 25),
+
+                    TextField(
+                      controller: controller,
+                      autofocus: true,
+                      style: TextStyle(color: Colors.white, fontSize: 18),
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: Colors.grey[850],
+                        hintText: "Tên playlist mới...",
+                        hintStyle: TextStyle(color: Colors.white54),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding:
+                        EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      ),
+                    ),
+
+                    SizedBox(height: 25),
+
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: Text("Hủy",
+                              style:
+                              TextStyle(color: Colors.white70, fontSize: 16)),
+                        ),
+                        SizedBox(width: 10),
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.indigoAccent,
+                            foregroundColor: Colors.white,
+                            padding: EdgeInsets.symmetric(
+                                horizontal: 30, vertical: 12),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10)),
+                          ),
+                          onPressed: () async {
+                            final newName = controller.text.trim();
+                            if (newName.isEmpty) return;
+
+                            final ok = await playlistProvider
+                                .updatePlaylistName(userId, playlistId, newName);
+
+                            if (!mounted) return;
+
+                            if (ok) showToast("Đổi tên thành công");
+
+                            if (mounted) Navigator.pop(context);
+                          },
+                          child: Text("Lưu",
+                              style: TextStyle(
+                                  fontSize: 16, fontWeight: FontWeight.bold)),
+                        ),
+                      ],
+                    )
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void handleDeletePlaylist(String playlistId) async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final userId = userProvider.user!.id.toString();
+    final playlistProvider = Provider.of<LoadSongProvider>(context, listen: false);
+
+    bool ok = await playlistProvider.deletePlaylist(userId, playlistId);
+
+    if (ok) {
+      showToast("Đã xóa playlist");
+      setState(() {}); // Load lại danh sách
+    } else {
+      showToast("Xóa playlist thất bại");
+    }
+  }
+
+
 }

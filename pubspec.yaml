@@ -53,8 +53,7 @@ dependencies:
   audioplayers: ^6.5.1
   webview_flutter: ^4.7.0
   palette_generator: ^0.3.3
-
-
+  url_launcher: ^6.2.5
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
@@ -97,6 +96,7 @@ flutter:
     - assets/images/album5.jpg
     - assets/images/album6.jpg
     - assets/images/momo_logo.png
+    - assets/images/app_logo.jpg
 
 
     #- assets/audio/seven_feat_latto.mp3
