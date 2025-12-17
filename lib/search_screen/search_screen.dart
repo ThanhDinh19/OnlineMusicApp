@@ -146,7 +146,6 @@ class SearchScreenState extends State<SearchScreen> {
       final res = await http.get(Uri.parse(url));
       if (res.statusCode == 200) {
         final data = json.decode(res.body);
-
         // Kiểm tra đúng định dạng JSON
         if (data is Map &&
             data["albums"] is List &&

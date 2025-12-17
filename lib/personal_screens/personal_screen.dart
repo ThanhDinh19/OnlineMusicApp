@@ -88,124 +88,124 @@ class PersonalScreenState extends State<PersonalScreen> {
             const SizedBox(height: 20),
 
             _buildMenuItem(Icons.border_top_rounded, S.theme(lang), (){
-              showModalBottomSheet(
-                context: context,
-                isScrollControlled: true,
-                shape: const RoundedRectangleBorder(
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(10)),
-                ),
-                builder: (_) {
-                  return DraggableScrollableSheet(
-                      expand: false,
-                      initialChildSize: 0.9,   // lúc đầu chiếm 60% màn hình
-                      minChildSize: 0.1,       // thấp nhất 40%
-                      maxChildSize: 0.95,      // kéo hết cỡ tới 95%
-                      builder: (context, scrollController){
-                        return DefaultTabController(
-                          length: 5,
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                // ============== chủ đề free ================
-                                const Text(
-                                  'Chủ đề mới',
-                                  style: TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                SizedBox(
-                                  height: 100,
-                                  child: ListView.builder(
-                                    scrollDirection: Axis.horizontal,
-                                    padding: const EdgeInsets.symmetric(horizontal: 5),
-                                    itemCount: themes.length,
-                                    itemBuilder: (context, index) {
-                                      final theme = themes[index];
-                                      return Padding(
-                                        padding: const EdgeInsets.only(right: 16),
-                                        child: Column(
-                                          children: [
-                                            GestureDetector(
-                                              onTap: () {
-                                                themeProvider.setCustomColor(
-                                                  theme['color'],
-                                                  theme['textColor'],
-                                                );
-                                              },
-                                              child: Container(
-                                                width: 60,
-                                                height: 60,
-                                                decoration: BoxDecoration(
-                                                  shape: BoxShape.circle,
-                                                  color: theme['color'],
-                                                  boxShadow: [
-                                                    BoxShadow(
-                                                      color: theme['color'].withOpacity(0.4),
-                                                      blurRadius: 8,
-                                                      offset: const Offset(0, 4),
-                                                    ),
-                                                  ],
-                                                ),
-                                                child: const Icon(Icons.palette, color: Colors.white),
-                                              ),
-                                            ),
-                                            const SizedBox(height: 8),
-                                            Text(
-                                              theme['name'],
-                                              style: const TextStyle(
-                                                color: Colors.white,
-                                                fontWeight: FontWeight.w600,
-                                                fontSize: 14,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                ),
-
-                                // ============== chủ đề pro ================
-                                const SizedBox(height: 20),
-                                TabBar(
-                                  isScrollable: true,
-                                  indicatorColor: Colors.blueAccent,
-                                  labelColor: Colors.blueAccent,
-                                  unselectedLabelColor: Colors.white70,
-                                  tabs: [
-                                    Tab(text: "🔥 Hot"),
-                                    Tab(text: "🌙 Nền tối"),
-                                    Tab(text: "🐻 Dễ thương"),
-                                    Tab(text: "🏙 Thành phố"),
-                                    Tab(text: "🎨 Nghệ sĩ"),
-                                  ],
-                                ),
-                                const SizedBox(height: 10),
-
-                                Expanded(
-                                  child: TabBarView(
-                                    children: [
-                                      ThemeGridView(category: "hot"),
-                                      ThemeGridView(category: "dark"),
-                                      ThemeGridView(category: "cute"),
-                                      ThemeGridView(category: "city"),
-                                      ThemeGridView(category: "artist"),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      }
-                  );
-                },
-              );
+              // showModalBottomSheet(
+              //   context: context,
+              //   isScrollControlled: true,
+              //   shape: const RoundedRectangleBorder(
+              //     borderRadius: BorderRadius.vertical(top: Radius.circular(10)),
+              //   ),
+              //   builder: (_) {
+              //     return DraggableScrollableSheet(
+              //         expand: false,
+              //         initialChildSize: 0.9,   // lúc đầu chiếm 60% màn hình
+              //         minChildSize: 0.1,       // thấp nhất 40%
+              //         maxChildSize: 0.95,      // kéo hết cỡ tới 95%
+              //         builder: (context, scrollController){
+              //           return DefaultTabController(
+              //             length: 5,
+              //             child: Padding(
+              //               padding: const EdgeInsets.all(16),
+              //               child: Column(
+              //                 mainAxisSize: MainAxisSize.min,
+              //                 children: [
+              //                   // ============== chủ đề free ================
+              //                   const Text(
+              //                     'Chủ đề mới',
+              //                     style: TextStyle(
+              //                       fontSize: 20,
+              //                       fontWeight: FontWeight.bold,
+              //                       color: Colors.white,
+              //                     ),
+              //                   ),
+              //                   const SizedBox(height: 12),
+              //                   SizedBox(
+              //                     height: 100,
+              //                     child: ListView.builder(
+              //                       scrollDirection: Axis.horizontal,
+              //                       padding: const EdgeInsets.symmetric(horizontal: 5),
+              //                       itemCount: themes.length,
+              //                       itemBuilder: (context, index) {
+              //                         final theme = themes[index];
+              //                         return Padding(
+              //                           padding: const EdgeInsets.only(right: 16),
+              //                           child: Column(
+              //                             children: [
+              //                               GestureDetector(
+              //                                 onTap: () {
+              //                                   themeProvider.setCustomColor(
+              //                                     theme['color'],
+              //                                     theme['textColor'],
+              //                                   );
+              //                                 },
+              //                                 child: Container(
+              //                                   width: 60,
+              //                                   height: 60,
+              //                                   decoration: BoxDecoration(
+              //                                     shape: BoxShape.circle,
+              //                                     color: theme['color'],
+              //                                     boxShadow: [
+              //                                       BoxShadow(
+              //                                         color: theme['color'].withOpacity(0.4),
+              //                                         blurRadius: 8,
+              //                                         offset: const Offset(0, 4),
+              //                                       ),
+              //                                     ],
+              //                                   ),
+              //                                   child: const Icon(Icons.palette, color: Colors.white),
+              //                                 ),
+              //                               ),
+              //                               const SizedBox(height: 8),
+              //                               Text(
+              //                                 theme['name'],
+              //                                 style: const TextStyle(
+              //                                   color: Colors.white,
+              //                                   fontWeight: FontWeight.w600,
+              //                                   fontSize: 14,
+              //                                 ),
+              //                               ),
+              //                             ],
+              //                           ),
+              //                         );
+              //                       },
+              //                     ),
+              //                   ),
+              //
+              //                   // ============== chủ đề pro ================
+              //                   const SizedBox(height: 20),
+              //                   TabBar(
+              //                     isScrollable: true,
+              //                     indicatorColor: Colors.blueAccent,
+              //                     labelColor: Colors.blueAccent,
+              //                     unselectedLabelColor: Colors.white70,
+              //                     tabs: [
+              //                       Tab(text: "🔥 Hot"),
+              //                       Tab(text: "🌙 Nền tối"),
+              //                       Tab(text: "🐻 Dễ thương"),
+              //                       Tab(text: "🏙 Thành phố"),
+              //                       Tab(text: "🎨 Nghệ sĩ"),
+              //                     ],
+              //                   ),
+              //                   const SizedBox(height: 10),
+              //
+              //                   Expanded(
+              //                     child: TabBarView(
+              //                       children: [
+              //                         ThemeGridView(category: "hot"),
+              //                         ThemeGridView(category: "dark"),
+              //                         ThemeGridView(category: "cute"),
+              //                         ThemeGridView(category: "city"),
+              //                         ThemeGridView(category: "artist"),
+              //                       ],
+              //                     ),
+              //                   ),
+              //                 ],
+              //               ),
+              //             ),
+              //           );
+              //         }
+              //     );
+              //   },
+              // );
             }),
             _buildMenuItem(Icons.support_agent, S.notification(lang), () {}),
             _buildMenuItem(Icons.support_agent, S.language(lang), () {

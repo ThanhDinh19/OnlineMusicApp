@@ -19,7 +19,7 @@ class AuthProvider extends ChangeNotifier{
   // for sign in
   static Future<UserCredential> signInWithGoogle() async {
     try {
-      // 1️⃣ Bắt đầu đăng nhập Google
+      // 1️ Bắt đầu đăng nhập Google
       final GoogleSignInAccount? googleUser = await googleSignInn.signIn();
 
       if (googleUser == null) {
@@ -30,17 +30,17 @@ class AuthProvider extends ChangeNotifier{
         );
       }
 
-      // 2️⃣ Lấy token xác thực từ Google
+      // 2️ Lấy token xác thực từ Google
       final GoogleSignInAuthentication googleAuth =
       await googleUser.authentication;
 
-      // 3️⃣ Tạo credential từ token
+      // 3️ Tạo credential từ token
       final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
 
-      // 4️⃣ Đăng nhập Firebase bằng credential
+      // 4️ Đăng nhập Firebase bằng credential
       return await FirebaseAuth.instance.signInWithCredential(credential);
     } on FirebaseAuthException catch (e) {
       print('FirebaseAuthException: ${e.message}');

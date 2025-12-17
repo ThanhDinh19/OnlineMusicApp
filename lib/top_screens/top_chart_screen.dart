@@ -639,6 +639,7 @@ class TopChartScreenState extends State<TopChartScreen> {
   }
 
   Widget _buildHotList(BuildContext context, AudioPlayerProvider audioProvider) {
+    final user = Provider.of<UserProvider>(context).user;
     return loading
         ? const Center(child: CircularProgressIndicator())
         : ListView.builder(
@@ -744,6 +745,12 @@ class TopChartScreenState extends State<TopChartScreen> {
           trailing: IconButton(
             icon: const Icon(Icons.more_horiz),
             onPressed: () {
+
+              if(user == null){
+                showToast("Hãy đăng nhập tài khoản để trải nghiệm\n âm nhạc tuyệt vời hơn");
+                return;
+              }
+
               showModalBottomSheet(
                 context: context,
                 backgroundColor: Colors.transparent,

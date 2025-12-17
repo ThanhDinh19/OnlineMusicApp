@@ -768,6 +768,7 @@ class ArtistDetailScreenState extends State<ArtistDetailScreen> {
                   final playCount = song["play_count"] ?? "";
                   final coverUrl = song["cover_url"] ?? "";
                   final audioUrl = song["audio_url"] ?? "";
+                  final artistName = song["artist_name"] ?? "";
                     print(artistSongs);
                   return ListTile(
                     leading: ClipRRect(
@@ -836,7 +837,7 @@ class ArtistDetailScreenState extends State<ArtistDetailScreen> {
                       ],
                     ),
                     subtitle: Text(
-                      playCount.toString(),
+                      artistName,
                       style: const TextStyle(color: Colors.white70),
                     ),
                     trailing: IconButton(

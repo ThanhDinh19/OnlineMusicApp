@@ -121,6 +121,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
     super.initState();
     fetchOnlineSongs();
     fetchStarterSongs();
+    fetchRecommendedSongs();
     getPlaylistSongs(user!.id.toString(), widget.playlistId.toString());
     playlistName = widget.playlistName.toString();
   }
@@ -569,7 +570,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
     );
   }
 
-  // lấy 50 hot online
+  // lấy bài hát cho những người mới bắt đầu (lượt nghe nhiều)
   List<Map<String, dynamic>> starterSongs = [];
   Future<void> fetchStarterSongs() async {
     final url = Uri.parse(
@@ -582,6 +583,30 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
         setState(() {
           starterSongs = List<Map<String, dynamic>>.from(data["songs"]);
         });
+      }
+    }
+  }
+
+  List<Map<String, dynamic>> recommendedSongs = [];
+  Future<void> fetchRecommendedSongs() async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final userId = userProvider.user?.id;
+
+    final url = Uri.parse(
+        "http://10.0.2.2:8081/music_API/online_music/recommendation/recommendations.php?user_id=$userId");
+    final res = await http.get(url);
+
+    if (res.statusCode == 200) {
+      final data = jsonDecode(res.body);
+      if (data["status"] == "success") {
+        if (data["recommendations"] == null || data["recommendations"].isEmpty) {
+          debugPrint("🟡 Chưa có lịch sử nghe → tải gợi ý cho người mới");
+          await fetchStarterSongs();
+        } else {
+          setState(() {
+            recommendedSongs = List<Map<String, dynamic>>.from(data["recommendations"]);
+          });
+        }
       }
     }
   }
@@ -816,6 +841,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                   ),
                 ),
                 const SizedBox(height: 8),
+
                 _buildRecommendSongList(context, audioProvider),
                 const SizedBox(height: 80),
 
@@ -1197,7 +1223,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                       builder: (context, scrollController) {
                         return Container(
                           decoration: const BoxDecoration(
-                            color: Color(0xFF0F0F1C),
+                            color: Color(0xFF1E201E),
                             borderRadius: BorderRadius.vertical(top: Radius.circular(15)),
                           ),
                           child: ListView(
@@ -1220,8 +1246,13 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                                     child: const Icon(Icons.music_note, color: Colors.white54),
                                   ),
                                 ),
-                                title: Text(songTitle),
-                                subtitle: Text(artist),
+                                title: Text(songTitle,
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                ),
+                                subtitle: Text(artist,
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 1),
                               ),
 
                               const Divider(color: Colors.white24),
@@ -1410,11 +1441,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
               builder: (context, scrollController) {
                 return Container(
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF37353E), Color(0xFF44444E)],
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                    ),
+                    color: Color(0xFF1E201E),
                     borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
                   ),
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -1548,16 +1575,24 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
   }
 
   // danh sách nhạc gợi ý lấy từ internet (finished)
+  List<Map<String, dynamic>> recomSongs = [];
   Widget _buildRecommendSongList(BuildContext context, AudioPlayerProvider audioProvider){
+    if(recommendedSongs.isEmpty){
+      recomSongs = starterSongs;
+    }
+    else{
+      recomSongs = recommendedSongs;
+    }
+
     final user = Provider.of<UserProvider>(context, listen: false).user;
-    return starterSongs.isEmpty
-        ? const Center(child: Text("Không có dữ liệu"))
+    return recomSongs.isEmpty
+        ? const Center(child: Text("Đảng tải..."))
         : ListView.builder(
       shrinkWrap: true, // Cho phép co theo nội dung
       physics: const NeverScrollableScrollPhysics(), // Không cuộn riêng
-      itemCount: starterSongs.length,
+      itemCount: recomSongs.length,
       itemBuilder: (context, index) {
-        final song = starterSongs[index];
+        final song = recomSongs[index];
         final song_id = song["song_id"] ?? "";
         final title = song["title"] ?? "Unknown Title";
         final artist = song["artist_name"] ?? "Unknown Artist";
@@ -1569,8 +1604,8 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
             borderRadius: BorderRadius.circular(5),
             child: Image.network(
               coverUrl,
-              width: 50,
-              height: 50,
+              width: 55,
+              height: 54,
               fit: BoxFit.cover,
               errorBuilder: (context, error, stackTrace) =>
               const Icon(Icons.music_note,

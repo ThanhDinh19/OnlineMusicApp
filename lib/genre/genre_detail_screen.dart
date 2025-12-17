@@ -12,7 +12,6 @@ import '../premium_screen/PremiumBottomSheet.dart';
 import '../provider/audio_player_provider.dart';
 import '../home_screens/just_audio_demo.dart';
 import 'package:page_transition/page_transition.dart';
-
 import '../provider/user_provider.dart';
 
 class GenreDetailScreen extends StatefulWidget {
@@ -717,17 +716,18 @@ class GenreDetailScreenState extends State<GenreDetailScreen> {
   }
 
   Widget _buildSongTile(BuildContext context, Map<String, dynamic> song, int index, AudioPlayerProvider audioProvider) {
+    final user = Provider.of<UserProvider>(context).user;
     final songId = song["song_id"].toString() ?? "";
     final songTitle = song["title"] ?? "";
-    final playCount = song["play_count"] ?? "";
+    //final playCount = song["play_count"] ?? "";
     final coverUrl = song["cover_url"] ?? "";
     final audioUrl = song["audio_url"] ?? "";
     final artistName = song["artist_name"] ?? "Unknown Artist";
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
       child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
         leading: Stack(
           children: [
             ClipRRect(
@@ -814,6 +814,12 @@ class GenreDetailScreenState extends State<GenreDetailScreen> {
         trailing: IconButton(
           icon: const Icon(Icons.more_horiz),
           onPressed: () {
+
+            if(user == null){
+              showToast("Hãy đăng nhập tài khoản để trải nghiệm\n âm nhạc tuyệt vời hơn");
+              return;
+            }
+
             showModalBottomSheet(
               context: context,
               backgroundColor: Colors.transparent,

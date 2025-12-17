@@ -38,6 +38,7 @@ class _LibraryScreenState extends State<LibraryScreen>
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
     final user = Provider.of<UserProvider>(context, listen: false).user;
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final uid = user!.id.toString();
 
@@ -632,6 +633,7 @@ class _LibraryScreenState extends State<LibraryScreen>
     _tabController.dispose();
     super.dispose();
   }
+
 
   @override
   Widget build(BuildContext context) {

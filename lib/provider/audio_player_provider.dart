@@ -14,6 +14,8 @@ import '../main.dart';
 
 class AudioPlayerProvider extends ChangeNotifier {
   final AudioPlayer player = AudioPlayer();
+
+
   String? playlistName; // để tạm
   String? playlistId;
 
@@ -32,7 +34,6 @@ class AudioPlayerProvider extends ChangeNotifier {
   String? currentArtist;
   String? currentCover;
 
-
   AudioPlayerProvider(BuildContext context) {
     _init(context);
   }
@@ -45,7 +46,20 @@ class AudioPlayerProvider extends ChangeNotifier {
         _handleSongEnd();
       }
     });
+    player.currentIndexStream.listen((index) {
+      if (index == null) return;
+
+      currentIndex = index;
+      currentTitle = playlist[index]["title"];
+      currentArtist = playlist[index]["artist"];
+      currentCover = playlist[index]["cover_url"];
+      currentSongId = playlist[index]["song_id"];
+
+      notifyListeners();
+    });
   }
+
+
 
   Future<void> _loadSongCount() async {
     final prefs = await SharedPreferences.getInstance();

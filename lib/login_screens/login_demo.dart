@@ -211,7 +211,7 @@ class LoginScreenDemoState extends State<LoginScreenDemo> {
           ),
 
 
-          SizedBox(height: 270),
+          SizedBox(height: 100),
 
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(
@@ -233,7 +233,6 @@ class LoginScreenDemoState extends State<LoginScreenDemo> {
                 MaterialPageRoute(builder: (_) => MainHome()),
               );
             }
-
           ),
 
           SizedBox(height: 10),

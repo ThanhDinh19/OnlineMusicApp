@@ -681,6 +681,7 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final user = Provider.of<UserProvider>(context).user;
     final userProvider = Provider.of<UserProvider>(context);
     final userId = userProvider.user?.id ?? "";
     final audioProvider = Provider.of<AudioPlayerProvider>(context);
@@ -747,6 +748,10 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
                           size: 30,
                         ),
                         onPressed: () async {
+                          if(user == null){
+                            showToast("Hãy đăng nhập tài khoản để trải ngiệm\n âm nhạc tuyệt vời hơn");
+                            return;
+                          }
                           setState(() {
                             isFavorite = !isFavorite;
                           });
@@ -857,6 +862,12 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
                     trailing: IconButton(
                       icon: const Icon(Icons.more_horiz),
                       onPressed: () {
+
+                        if(user == null){
+                          showToast("Hãy đăng nhập tài khoản để trải nghiệm\n âm nhạc tuyệt vời hơn");
+                          return;
+                        }
+
                         showModalBottomSheet(
                           context: context,
                           backgroundColor: Colors.transparent,

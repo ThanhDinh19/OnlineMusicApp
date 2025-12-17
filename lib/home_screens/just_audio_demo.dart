@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:just_audio/just_audio.dart';
@@ -7,6 +8,7 @@ import 'package:palette_generator/palette_generator.dart';
 import 'package:provider/provider.dart';
 
 import '../audio/music_wave.dart';
+import '../design/EqualizerAnimation.dart';
 import '../handle_image/rotating_image.dart';
 import '../provider/audio_player_provider.dart';
 import '../provider/favorite_song_provider.dart';
@@ -48,12 +50,25 @@ class _JustAudioDemoState extends State<JustAudioDemo> {
     }
 
     // Lấy màu khi bài hát đổi
-    _audioProvider.player.currentIndexStream.listen((_) {
+    _audioProvider.player.currentIndexStream.listen((index) async {
+      if (index == null) return;
+
+      // update UI bài mới
+      setState(() {});
+
+      // cập nhật màu nền
       final cover = _audioProvider.currentCover;
       if (cover != null && cover.isNotEmpty) {
         updateBackgroundColor(cover);
       }
+
+      // cập nhật trái tim
+      await checkFavoriteStatus();
+
+      // báo UI khác cập nhật
+      _audioProvider.setPlaying(_audioProvider.player.playing);
     });
+
   }
 
   //  LẤY MÀU TỪ ẢNH
@@ -72,8 +87,6 @@ class _JustAudioDemoState extends State<JustAudioDemo> {
 
   @override
   void dispose() {
-    final player = AudioPlayer();
-    player.dispose();
     super.dispose();
   }
 
@@ -137,8 +150,24 @@ class _JustAudioDemoState extends State<JustAudioDemo> {
     }
   }
 
+  void showToast(String msg) {
+    Fluttertoast.showToast(
+      msg: msg,
+      gravity: ToastGravity.CENTER,
+      backgroundColor: Colors.black.withOpacity(0.7),
+      textColor: Colors.white,
+      fontSize: 16,
+    );
+
+    // Tuỳ chọn: tự tắt sớm hơn (nếu muốn)
+    Future.delayed(const Duration(seconds: 1), () {
+      Fluttertoast.cancel();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    final user = Provider.of<UserProvider>(context).user;
     final audioProvider = Provider.of<AudioPlayerProvider>(context);
     final player = audioProvider.player;
     final userProvider = Provider.of<UserProvider>(context);
@@ -237,6 +266,12 @@ class _JustAudioDemoState extends State<JustAudioDemo> {
                     size: 30,
                   ),
                   onPressed: () async {
+
+                    if(user == null){
+                      showToast("Hãy đăng nhập tài khoản để trải ngiệm\n âm nhạc tuyệt vời hơn");
+                      return;
+                    }
+
                     setState(() {
                       isFavorite = !isFavorite;
                     });
@@ -290,6 +325,7 @@ class _JustAudioDemoState extends State<JustAudioDemo> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
+
                 IconButton(
                   icon: FaIcon(
                     FontAwesomeIcons.shuffle,
@@ -324,8 +360,15 @@ class _JustAudioDemoState extends State<JustAudioDemo> {
                           size: 70,
                           color: Colors.white,
                         ),
-                        onPressed:
-                        playing ? player.pause : player.play,
+                          onPressed: () {
+                            if (playing) {
+                              player.pause();
+                              audioProvider.setPlaying(false); // ← thêm dòng này
+                            } else {
+                              player.play();
+                              audioProvider.setPlaying(true); // ← thêm dòng này
+                            }
+                          },
                       );
                     }),
                 IconButton(

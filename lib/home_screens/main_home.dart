@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter/material.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:music_app/helpers/hide_app_bar_observer.dart';
 import 'package:music_app/search_screen/search_screen.dart';
@@ -89,6 +90,21 @@ class _MainHomeState extends State<MainHome> {
     );
   }
 
+  void showToast(String msg) {
+    Fluttertoast.showToast(
+      msg: msg,
+      gravity: ToastGravity.CENTER,
+      backgroundColor: Colors.black.withOpacity(0.9),
+      textColor: Colors.white,
+      fontSize: 16,
+    );
+
+    // Tuỳ chọn: tự tắt sớm hơn (nếu muốn)
+    Future.delayed(const Duration(seconds: 1), () {
+      Fluttertoast.cancel();
+    });
+  }
+
   // BUILD UI
   @override
   Widget build(BuildContext context) {
@@ -122,12 +138,45 @@ class _MainHomeState extends State<MainHome> {
                 margin: EdgeInsets.zero,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: user == null
-                    ? const Center(
-                  child: Text("Đang tải...", style: TextStyle(color: Colors.white)),
+                    ? Row(
+                  children: [
+                    // Avatar
+                    Stack(
+                      children: [
+                        // Viền vàng khi Premium
+                        Container(
+                          width: 58,
+                          height: 58,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+
+                        // Avatar real
+                        Positioned(
+                          left: 3,
+                          top: 3,
+                          child: CircleAvatar(
+                            backgroundColor: Colors.transparent,
+                            backgroundImage: AssetImage('assets/images/profile.png') as ImageProvider,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Text(
+                      "Khách",
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 )
                     :Row(
                   children: [
-
                     // Avatar
                     Stack(
                       children: [
@@ -201,14 +250,22 @@ class _MainHomeState extends State<MainHome> {
                 ),
               ),
 
-              _buildDrawerItem(
-                icon: Icons.person,
-                text: "Hồ sơ cá nhân",
-                onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (context) => PersonalScreen())),
-              ),
+                _buildDrawerItem(
+                  icon: Icons.person,
+                  text: "Hồ sơ cá nhân",
+                  onTap: () {
+
+                    if(user == null){
+                      showToast("Hãy đăng nhập tài khoản để trải nghiệm\n âm nhạc tuyệt vời hơn");
+                    }
+                    else{
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => PersonalScreen()));
+                    }
+                  }
+                ),
 
               _buildDrawerItem(
                 icon: Icons.workspace_premium,
@@ -317,17 +374,28 @@ class _MainHomeState extends State<MainHome> {
                     icon: const Icon(Icons.mic_none_rounded,
                         color: Colors.white),
                     onPressed: () {
-                      _navigatorKeys[_selectedIndex].currentState?.push(
-                        MaterialPageRoute(
-                          builder: (_) => VoiceScreen(),
-                          settings: const RouteSettings(name: "voice"),
-                        ),
-                      );
+
+                      // if(user == null){
+                      //   showToast("Hãy đăng nhập tài khoản để trải nghiệm\n âm nhạc tuyệt vời hơn");
+                      //   return;
+                      // }
+                      // _navigatorKeys[_selectedIndex].currentState?.push(
+                      //   MaterialPageRoute(
+                      //     builder: (_) => VoiceScreen(),
+                      //     settings: const RouteSettings(name: "voice"),
+                      //   ),
+                      // );
                     },
                   ),
                   IconButton(
                     icon: const Icon(Icons.search, color: Colors.white),
                     onPressed: () {
+
+                      if(user == null){
+                        showToast("Hãy đăng nhập tài khoản để trải nghiệm\n âm nhạc tuyệt vời hơn");
+                        return;
+                      }
+
                       _navigatorKeys[_selectedIndex].currentState?.push(
                         MaterialPageRoute(
                           builder: (_) => SearchScreen(),
@@ -400,7 +468,7 @@ class _MainHomeState extends State<MainHome> {
               children: [
                 _navItem(Icons.home_rounded, 'Trang Chủ', 0),
                 _navItem(Icons.local_fire_department_rounded, 'Hot', 1),
-                _navItem(Icons.library_music_rounded, 'Thư Viện', 2),
+                user != null ? _navItem(Icons.library_music_rounded, 'Thư Viện', 2) : _navCustomerItem(Icons.library_music_rounded, 'Thư Viện'),
                 _navItem(Icons.workspace_premium_rounded, 'Premium', 3),
               ],
             ),
@@ -449,6 +517,39 @@ class _MainHomeState extends State<MainHome> {
                       ? Colors.indigoAccent
                       : Colors.grey.shade400,
                   fontSize: isSelected ? 12 : 11,
+                )),
+          ],
+        ),
+      ),
+    );
+  }
+
+
+  Widget _navCustomerItem(IconData icon, String label) {
+    return GestureDetector(
+      onTap: () {
+        showToast("Hãy đăng nhập tài khoản để trải nghiệm\n âm nhạc tuyệt vời hơn");
+        return;
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        padding: EdgeInsets.symmetric(
+            horizontal : 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon,
+                color: Colors.grey.shade400,
+                size: 24),
+            const SizedBox(height: 4),
+            Text(label,
+                style: TextStyle(
+                  color: Colors.grey.shade400,
+                  fontSize: 11,
                 )),
           ],
         ),

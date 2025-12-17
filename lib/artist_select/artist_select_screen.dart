@@ -121,7 +121,6 @@ class _ArtistSelectScreenState extends State<ArtistSelectScreen> {
   }
 
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
