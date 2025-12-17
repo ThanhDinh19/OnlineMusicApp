@@ -28,7 +28,7 @@ android {
         applicationId = "com.example.music_app"
 
         // ⚠️ Firebase yêu cầu minSdk >= 23
-        minSdk = 23
+        minSdk = flutter.minSdkVersion
 
         // Bạn có thể để targetSdk là 34 (API mới nhất)
         targetSdk = 34
