@@ -765,7 +765,7 @@ class TopChartScreenState extends State<TopChartScreen> {
                     builder: (context, scrollController) {
                       return Container(
                         decoration: const BoxDecoration(
-                          color: Color(0xFF0F0F1C),
+                          color: Color(0xFF1E201E),
                           borderRadius: BorderRadius.vertical(
                               top: Radius.circular(15)),
                         ),

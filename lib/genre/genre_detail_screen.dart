@@ -867,7 +867,7 @@ class GenreDetailScreenState extends State<GenreDetailScreen> {
                             title: const Text('Chia sẻ'),
                           ),
                           ListTile(
-                            leading: const Icon(Icons.remove_circle_outline),
+                            leading: const Icon(Icons.add_circle_outline),
                             title: const Text('Thêm vào playlist'),
                             onTap: () async {
                               await getUserPlaylists();
@@ -877,7 +877,7 @@ class GenreDetailScreenState extends State<GenreDetailScreen> {
                             },
                           ),
                           ListTile(
-                              leading: const Icon(Icons.remove_circle_outline),
+                              leading: const Icon(Icons.download_sharp),
                               title: const Text('Tải xuống'),
                               onTap: () async {
                                 if (isDownloading) return; // chặn spam
